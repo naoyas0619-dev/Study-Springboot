@@ -11,11 +11,7 @@ Spring Bootで作成したシンプルなタスク管理APIです。
 - Docker
 - Gradle
 
----
-
 ## 機能
-
-このAPIでは以下の操作が可能です。
 
 - タスク作成
 - タスク一覧取得
@@ -23,112 +19,96 @@ Spring Bootで作成したシンプルなタスク管理APIです。
 - タスク更新
 - タスク削除
 
----
+## セットアップ
+
+このリポジトリでは、DB接続情報を環境変数で管理します。
+
+1. `.env.example` をコピーして `.env` を作成します。
+2. `POSTGRES_PASSWORD` を自分の値に変更します。
+
+```bash
+cp .env.example .env
+```
+
+## 起動方法
+
+### Docker Composeで起動
+
+```bash
+docker compose up --build
+```
+
+APIは `http://localhost:8080` で利用できます。
+
+### Spring Bootだけ起動する場合
+
+PostgreSQLを先に起動し、環境変数を設定してから起動します。
+
+```bash
+export DB_URL=jdbc:postgresql://localhost:5432/taskdb
+export DB_USERNAME=app
+export DB_PASSWORD=your-password
+./gradlew bootRun
+```
 
 ## API一覧
 
 ### タスク作成
 
-POST /tasks
+`POST /tasks`
 
-例
-# Task API
-
-Spring Bootで作成したシンプルなタスク管理APIです。
-
-## 技術スタック
-
-- Java 17
-- Spring Boot
-- Spring Data JPA
-- PostgreSQL
-- Docker
-- Gradle
-
----
-
-## 機能
-
-このAPIでは以下の操作が可能です。
-
-- タスク作成
-- タスク一覧取得
-- タスク詳細取得
-- タスク更新
-- タスク削除
-
----
-
-## API一覧
-
-### タスク作成
-
-POST /tasks
-
-例
-curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"title":"task"}'
-
----
+```bash
+curl -X POST http://localhost:8080/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"task"}'
+```
 
 ### タスク一覧
 
-GET /tasks
+`GET /tasks`
 
-例
+```bash
 curl http://localhost:8080/tasks
+```
 
----
+### タスク詳細取得
 
-### タスク取得
+`GET /tasks/{id}`
 
-GET /tasks/{id}
+```bash
+curl http://localhost:8080/tasks/1
+```
 
-例
-curl -X PUT http://localhost:8080/tasks/1 -H "Content-Type: application/json" -d '{"title":"updated"}'
+### タスク更新
 
----
+`PUT /tasks/{id}`
+
+```bash
+curl -X PUT http://localhost:8080/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title":"updated"}'
+```
 
 ### タスク削除
 
-DELETE /tasks/{id}
+`DELETE /tasks/{id}`
 
-例
+```bash
 curl -X DELETE http://localhost:8080/tasks/1
-
----
+```
 
 ## DB構成
 
-tasks テーブル
+`tasks` テーブル
 
 | column | type |
-|------|------|
+| --- | --- |
 | id | bigint |
 | title | varchar |
 | created_at | timestamp |
 | updated_at | timestamp |
 
----
-
-## 起動方法
-
-### PostgreSQL起動
-docker run -d
--p 5432:5432
--e POSTGRES_DB=taskdb
--e POSTGRES_USER=app
--e POSTGRES_PASSWORD=app
---name task-db
-postgres:16
-
-### Spring Boot起動
-./gradlew bootRun
-
----
-
 ## 学習ポイント
-
-このプロジェクトでは以下を学習しました。
 
 - REST API設計
 - Spring Bootの基本構造
