@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task API Study Guide</title>
+    <link rel="stylesheet" href="/study-guide.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <p class="eyebrow">Spring Boot Learning Page</p>
+            <h1>Task APIがどう動いているかを<br>図で追える学習ガイド</h1>
+            <p class="hero-copy">
+                このページは、今のプロジェクトが「どのファイルで、何をしていて、リクエストがどう流れるか」を
+                目で追えるように整理したものです。
+            </p>
+            <div class="hero-links">
+                <a href="#overview">全体の流れを見る</a>
+                <a href="/project-setup-guide">環境とツールの関係を見る</a>
+                <a href="#architecture">関係図を見る</a>
+                <a href="#api-explorer">API対応を見る</a>
+                <a href="#request-flow">保存の流れを見る</a>
+                <a href="#db-change">DB変化を見る</a>
+                <a href="#file-map">ファイルの役割を見る</a>
+                <a href="#source-links">ソースコードへ移動する</a>
+            </div>
+        </header>
+
+        <main class="content">
+            <section id="overview" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Overview</p>
+                    <h2>プロジェクト全体の処理の流れ</h2>
+                    <p>
+                        このアプリは、外から来たHTTPリクエストを Controller が受け取り、
+                        Service で処理し、Repository を通して Database に保存します。
+                    </p>
+                </div>
+
+                <div class="flow-diagram">
+                    <div class="flow-box user-box">
+                        <span class="flow-title">1. クライアント</span>
+                        <p>ブラウザ / curl / Swagger UI</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box controller-box">
+                        <span class="flow-title">2. Controller</span>
+                        <p>URLを受け取り、どの処理を呼ぶか決める</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box service-box">
+                        <span class="flow-title">3. Service</span>
+                        <p>作成・更新・検索などの業務ロジックを担当</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box repository-box">
+                        <span class="flow-title">4. Repository</span>
+                        <p>DBへ保存・検索する窓口</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box db-box">
+                        <span class="flow-title">5. Database</span>
+                        <p>PostgreSQL の <code>tasks</code> テーブル</p>
+                    </div>
+                </div>
+
+                <div class="mini-grid">
+                    <article class="mini-card">
+                        <h3>入口</h3>
+                        <p><code>TaskController</code> が <code>/tasks</code> へのアクセスを受けます。</p>
+                    </article>
+                    <article class="mini-card">
+                        <h3>処理</h3>
+                        <p><code>TaskService</code> が日時設定や存在確認などの処理を行います。</p>
+                    </article>
+                    <article class="mini-card">
+                        <h3>保存</h3>
+                        <p><code>TaskRepository</code> が JPA を通してSQL発行を担当します。</p>
+                    </article>
+                </div>
+
+                <div class="guide-bridge">
+                    <div>
+                        <p class="section-label">Next Step</p>
+                        <h3>開発環境やツールのつながりを先に理解したい場合</h3>
+                        <p>
+                            Docker、VSCode、Spring Boot、PostgreSQL、GitHub が
+                            どう関係しているかを別ページで整理しています。
+                        </p>
+                    </div>
+                    <a class="guide-bridge-link" href="/project-setup-guide">環境・構築ガイドへ移動する</a>
+                </div>
+            </section>
+
+            <section id="architecture" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Architecture</p>
+                    <h2>Controller / Service / Repository の関係図</h2>
+                    <p>
+                        このプロジェクトでは、画面やAPIの入口と、業務処理と、DBアクセスを分けています。
+                        それぞれの責任を分けることで、コードが読みやすくなり、修正もしやすくなります。
+                    </p>
+                </div>
+
+                <div class="architecture-diagram">
+                    <div class="arch-layer arch-client">
+                        <span class="arch-label">Client</span>
+                        <h3>Browser / curl / Swagger UI</h3>
+                        <p>HTTPリクエストを送る利用者側です。</p>
+                    </div>
+
+                    <div class="arch-connector vertical">↓</div>
+
+                    <div class="arch-layer arch-controller">
+                        <span class="arch-label">Controller Layer</span>
+                        <h3>TaskController</h3>
+                        <p>URLとHTTPメソッドを受け取り、どの処理を呼ぶか決めます。</p>
+                        <div class="chip-row">
+                            <span class="chip">POST /tasks</span>
+                            <span class="chip">GET /tasks</span>
+                            <span class="chip">PUT /tasks/{id}</span>
+                        </div>
+                    </div>
+
+                    <div class="arch-connector vertical">↓</div>
+
+                    <div class="arch-layer arch-service">
+                        <span class="arch-label">Service Layer</span>
+                        <h3>TaskService</h3>
+                        <p>日時の設定、存在確認、更新処理などの業務ロジックを担当します。</p>
+                        <div class="chip-row">
+                            <span class="chip">create()</span>
+                            <span class="chip">findById()</span>
+                            <span class="chip">update()</span>
+                            <span class="chip">delete()</span>
+                        </div>
+                    </div>
+
+                    <div class="arch-connector vertical">↓</div>
+
+                    <div class="arch-layer arch-repository">
+                        <span class="arch-label">Repository Layer</span>
+                        <h3>TaskRepository</h3>
+                        <p>JPAを通して、保存・検索・削除などのDB操作を行います。</p>
+                        <div class="chip-row">
+                            <span class="chip">save()</span>
+                            <span class="chip">findAll()</span>
+                            <span class="chip">findByTitleContaining()</span>
+                        </div>
+                    </div>
+
+                    <div class="arch-connector vertical">↓</div>
+
+                    <div class="arch-layer arch-db">
+                        <span class="arch-label">Database Layer</span>
+                        <h3>Task Entity ↔ PostgreSQL</h3>
+                        <p><code>Task.java</code> が <code>tasks</code> テーブルに対応し、データの形を表します。</p>
+                    </div>
+                </div>
+
+                <div class="relationship-grid">
+                    <article class="relation-card">
+                        <h3>Controller と DTO の関係</h3>
+                        <p>
+                            <code>TaskController</code> は、受け取る時に <code>TaskRequest</code>、
+                            返す時に <code>TaskResponse</code> を使います。
+                        </p>
+                    </article>
+                    <article class="relation-card">
+                        <h3>Service と Entity の関係</h3>
+                        <p>
+                            <code>TaskService</code> は、内部処理では <code>Task</code> Entity を使ってDB保存用のデータを扱います。
+                        </p>
+                    </article>
+                    <article class="relation-card">
+                        <h3>例外処理の流れ</h3>
+                        <p>
+                            <code>NotFoundException</code> やバリデーションエラーは
+                            <code>GlobalExceptionHandler</code> が受けて、HTTPエラーに変換します。
+                        </p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="api-explorer" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">API Explorer</p>
+                    <h2>各APIを押して、対応する処理を見る</h2>
+                    <p>
+                        下のAPIボタンを押すと、そのAPIがどのControllerメソッドを呼び、
+                        どのService処理につながっているかがハイライトされます。
+                    </p>
+                </div>
+
+                <div class="api-switcher" role="tablist" aria-label="API selector">
+                    <button class="api-tab is-active" type="button" data-api-target="create" aria-pressed="true">POST /tasks</button>
+                    <button class="api-tab" type="button" data-api-target="list" aria-pressed="false">GET /tasks</button>
+                    <button class="api-tab" type="button" data-api-target="detail" aria-pressed="false">GET /tasks/{id}</button>
+                    <button class="api-tab" type="button" data-api-target="update" aria-pressed="false">PUT /tasks/{id}</button>
+                    <button class="api-tab" type="button" data-api-target="delete" aria-pressed="false">DELETE /tasks/{id}</button>
+                </div>
+
+                <div class="api-panels">
+                    <article class="api-panel is-active" data-api-panel="create">
+                        <div class="api-panel-header">
+                            <span class="request-badge">Create Flow</span>
+                            <h3>POST /tasks</h3>
+                            <p>新しいタスクを作成するAPIです。</p>
+                        </div>
+                        <div class="method-lane">
+                            <div class="method-card controller-method is-highlight">
+                                <span class="method-type">Controller</span>
+                                <strong>TaskController#create</strong>
+                                <p>受け取ったJSONを <code>TaskRequest</code> に変換し、Serviceへ渡します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card service-method is-highlight">
+                                <span class="method-type">Service</span>
+                                <strong>TaskService#create</strong>
+                                <p><code>createdAt</code> と <code>updatedAt</code> を設定して保存準備をします。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card repository-method is-highlight">
+                                <span class="method-type">Repository</span>
+                                <strong>TaskRepository#save</strong>
+                                <p>JPAがINSERT相当の保存処理を行います。</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="api-panel" data-api-panel="list">
+                        <div class="api-panel-header">
+                            <span class="request-badge">Read Flow</span>
+                            <h3>GET /tasks</h3>
+                            <p>タスク一覧をページ付きで取得するAPIです。タイトル検索にも対応しています。</p>
+                        </div>
+                        <div class="method-lane">
+                            <div class="method-card controller-method is-highlight">
+                                <span class="method-type">Controller</span>
+                                <strong>TaskController#getAll</strong>
+                                <p>ページ情報と検索条件を受け取り、どのServiceメソッドを呼ぶか分岐します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card service-method is-highlight">
+                                <span class="method-type">Service</span>
+                                <strong>TaskService#findAll / search</strong>
+                                <p>全件取得かタイトル検索かを実行し、結果を <code>TaskResponse</code> に変換します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card repository-method is-highlight">
+                                <span class="method-type">Repository</span>
+                                <strong>findAll / findByTitleContaining</strong>
+                                <p>ページング付きでDBからレコードを取得します。</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="api-panel" data-api-panel="detail">
+                        <div class="api-panel-header">
+                            <span class="request-badge">Read Flow</span>
+                            <h3>GET /tasks/{id}</h3>
+                            <p>指定したIDのタスクを1件取得するAPIです。</p>
+                        </div>
+                        <div class="method-lane">
+                            <div class="method-card controller-method is-highlight">
+                                <span class="method-type">Controller</span>
+                                <strong>TaskController#getById</strong>
+                                <p>パス変数のIDを受け取り、Serviceへそのまま渡します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card service-method is-highlight">
+                                <span class="method-type">Service</span>
+                                <strong>TaskService#findById</strong>
+                                <p>存在しない場合は <code>NotFoundException</code> を投げます。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card repository-method is-highlight">
+                                <span class="method-type">Repository</span>
+                                <strong>findById</strong>
+                                <p>IDで検索し、見つかった1件を返します。</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="api-panel" data-api-panel="update">
+                        <div class="api-panel-header">
+                            <span class="request-badge">Update Flow</span>
+                            <h3>PUT /tasks/{id}</h3>
+                            <p>既存タスクのタイトルを更新するAPIです。</p>
+                        </div>
+                        <div class="method-lane">
+                            <div class="method-card controller-method is-highlight">
+                                <span class="method-type">Controller</span>
+                                <strong>TaskController#update</strong>
+                                <p>更新対象のIDと新しいタイトルを受け取ります。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card service-method is-highlight">
+                                <span class="method-type">Service</span>
+                                <strong>TaskService#update</strong>
+                                <p>対象を探してタイトルを書き換え、<code>updatedAt</code> を更新します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card repository-method is-highlight">
+                                <span class="method-type">Repository</span>
+                                <strong>save</strong>
+                                <p>更新済みEntityを再保存して、UPDATE相当の処理を行います。</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="api-panel" data-api-panel="delete">
+                        <div class="api-panel-header">
+                            <span class="request-badge">Delete Flow</span>
+                            <h3>DELETE /tasks/{id}</h3>
+                            <p>指定IDのタスクを削除するAPIです。</p>
+                        </div>
+                        <div class="method-lane">
+                            <div class="method-card controller-method is-highlight">
+                                <span class="method-type">Controller</span>
+                                <strong>TaskController#delete</strong>
+                                <p>IDを受け取り、削除処理をServiceへ依頼します。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card service-method is-highlight">
+                                <span class="method-type">Service</span>
+                                <strong>TaskService#delete</strong>
+                                <p>存在確認をしてから削除します。見つからなければ例外になります。</p>
+                            </div>
+                            <div class="method-arrow">→</div>
+                            <div class="method-card repository-method is-highlight">
+                                <span class="method-type">Repository</span>
+                                <strong>existsById / deleteById</strong>
+                                <p>存在確認と削除をDBに対して行います。</p>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="request-flow" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Request Flow</p>
+                    <h2>HTTPリクエストが来てからDBに保存されるまで</h2>
+                    <p>
+                        ここでは <code>POST /tasks</code> でタスクを作成するときの流れを、
+                        1ステップずつ分解しています。
+                    </p>
+                </div>
+
+                <div class="request-example">
+                    <span class="request-badge">送られてくる例</span>
+                    <pre><code>POST /tasks
+Content-Type: application/json
+
+{
+  "title": "Spring Bootを理解する"
+}</code></pre>
+                </div>
+
+                <div class="timeline">
+                    <article class="timeline-step">
+                        <span class="step-no">01</span>
+                        <div>
+                            <h3>クライアントがリクエストを送る</h3>
+                            <p>ブラウザ、curl、Swagger UI などから <code>POST /tasks</code> が送られます。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">02</span>
+                        <div>
+                            <h3>Controller が受け取る</h3>
+                            <p><code>TaskController#create</code> がURLとJSONを受け取り、次の処理へ渡します。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">03</span>
+                        <div>
+                            <h3>TaskRequest に変換される</h3>
+                            <p>JSONの <code>title</code> が <code>TaskRequest</code> に入ります。空文字なら <code>@NotBlank</code> でエラーになります。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">04</span>
+                        <div>
+                            <h3>Service が業務処理を行う</h3>
+                            <p><code>TaskService#create</code> が <code>createdAt</code> と <code>updatedAt</code> をセットします。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">05</span>
+                        <div>
+                            <h3>Repository が保存する</h3>
+                            <p><code>repo.save(task)</code> を実行すると、Spring Data JPA がDB保存処理を組み立てます。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">06</span>
+                        <div>
+                            <h3>PostgreSQL にレコードが入る</h3>
+                            <p><code>tasks</code> テーブルに新しい1件が保存され、IDが自動採番されます。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">07</span>
+                        <div>
+                            <h3>レスポンス用の形に変換する</h3>
+                            <p><code>TaskResponse</code> に変換して、クライアントに返す項目だけを絞ります。</p>
+                        </div>
+                    </article>
+                    <article class="timeline-step">
+                        <span class="step-no">08</span>
+                        <div>
+                            <h3>JSONレスポンスを返す</h3>
+                            <p>最終的に <code>{"id": 1, "title": "..."}</code> のようなJSONが返ります。</p>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="db-change" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">DB Change</p>
+                    <h2>Task作成時のJSONレスポンス例とDBテーブル変化</h2>
+                    <p>
+                        ここでは <code>POST /tasks</code> を実行したときに、
+                        「返ってくるJSON」と「DBの中身がどう変わるか」を並べて見られます。
+                    </p>
+                </div>
+
+                <div class="db-visual-grid">
+                    <article class="db-card">
+                        <span class="request-badge">Response Example</span>
+                        <h3>クライアントに返るJSON</h3>
+                        <pre><code>{
+  "id": 1,
+  "title": "Spring Bootを理解する"
+}</code></pre>
+                        <p class="db-note">
+                            このAPIでは、レスポンスには <code>id</code> と <code>title</code> を返しています。
+                            <code>createdAt</code> や <code>updatedAt</code> は内部管理用なので返していません。
+                        </p>
+                    </article>
+
+                    <article class="db-card">
+                        <span class="request-badge">Table Change</span>
+                        <h3>tasks テーブルの変化</h3>
+                        <div class="db-compare">
+                            <div class="db-state">
+                                <h4>保存前</h4>
+                                <table class="mini-table">
+                                    <thead>
+                                        <tr>
+                                            <th>id</th>
+                                            <th>title</th>
+                                            <th>created_at</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="3">まだレコードなし</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="db-state-arrow">→</div>
+                            <div class="db-state">
+                                <h4>保存後</h4>
+                                <table class="mini-table">
+                                    <thead>
+                                        <tr>
+                                            <th>id</th>
+                                            <th>title</th>
+                                            <th>created_at</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>1</td>
+                                            <td>Spring Bootを理解する</td>
+                                            <td>2026-03-25 21:00...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="insert-diagram">
+                    <div class="insert-box">
+                        <span class="flow-title">受信したJSON</span>
+                        <p><code>{"title":"Spring Bootを理解する"}</code></p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="insert-box">
+                        <span class="flow-title">Task Entity</span>
+                        <p><code>title</code> と日時がセットされる</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="insert-box">
+                        <span class="flow-title">INSERT</span>
+                        <p>JPAがDB保存処理を実行する</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="insert-box">
+                        <span class="flow-title">TaskResponse</span>
+                        <p>返却用に <code>id</code> と <code>title</code> へ整理</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="file-map" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">File Map</p>
+                    <h2>どのファイルが何をしているのか</h2>
+                    <p>まずはこの順番で読むと、プロジェクトの全体像をつかみやすいです。</p>
+                </div>
+
+                <div class="file-groups">
+                    <article class="file-group">
+                        <h3>アプリの入口</h3>
+                        <ul>
+                            <li><code>TaskApiApplication.java</code>: Spring Bootアプリを起動するメインクラス</li>
+                            <li><code>StudyGuideController.java</code>: この学習ページを開くためのルート</li>
+                            <li><code>HelloController.java</code>: 動作確認用のシンプルなAPI</li>
+                        </ul>
+                    </article>
+                    <article class="file-group">
+                        <h3>APIの本体</h3>
+                        <ul>
+                            <li><code>TaskController.java</code>: HTTPリクエストの受付窓口</li>
+                            <li><code>TaskService.java</code>: 業務処理の中心</li>
+                            <li><code>TaskRepository.java</code>: DBアクセス担当</li>
+                            <li><code>Task.java</code>: DBの <code>tasks</code> テーブルに対応するEntity</li>
+                        </ul>
+                    </article>
+                    <article class="file-group">
+                        <h3>受け渡し用のクラス</h3>
+                        <ul>
+                            <li><code>TaskRequest.java</code>: リクエストで受け取るデータ</li>
+                            <li><code>TaskResponse.java</code>: レスポンスで返すデータ</li>
+                            <li><code>ErrorResponse.java</code>: エラー時に返すJSONの形</li>
+                        </ul>
+                    </article>
+                    <article class="file-group">
+                        <h3>エラー処理</h3>
+                        <ul>
+                            <li><code>NotFoundException.java</code>: データが見つからない時の独自例外</li>
+                            <li><code>GlobalExceptionHandler.java</code>: 例外をHTTPエラーに変換するクラス</li>
+                        </ul>
+                    </article>
+                    <article class="file-group">
+                        <h3>設定ファイル</h3>
+                        <ul>
+                            <li><code>application.properties</code>: DB接続やJPAの設定</li>
+                            <li><code>build.gradle</code>: 依存ライブラリやビルド設定</li>
+                            <li><code>docker-compose.yml</code>: APIとPostgreSQLをまとめて起動する設定</li>
+                            <li><code>Dockerfile</code>: APIのDockerイメージを作る手順</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="source-links" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Source Links</p>
+                    <h2>実際のソースコードへのリンク一覧</h2>
+                    <p>
+                        下のリンクはGitHub上の実ファイルに直接飛べます。
+                        学習ページを見ながら、該当ファイルをそのまま開いて読むための入口です。
+                    </p>
+                </div>
+
+                <div class="source-link-grid">
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/TaskApiApplication.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">App Entry</span>
+                        <strong>TaskApiApplication.java</strong>
+                        <p>Spring Boot の起動点</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/TaskController.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">Controller</span>
+                        <strong>TaskController.java</strong>
+                        <p>HTTPリクエストの入口</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/service/TaskService.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">Service</span>
+                        <strong>TaskService.java</strong>
+                        <p>業務ロジックの中心</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/repository/TaskRepository.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">Repository</span>
+                        <strong>TaskRepository.java</strong>
+                        <p>DBアクセスの窓口</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/model/Task.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">Entity</span>
+                        <strong>Task.java</strong>
+                        <p><code>tasks</code> テーブルと対応するクラス</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/dto/TaskRequest.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">DTO</span>
+                        <strong>TaskRequest.java</strong>
+                        <p>受け取るJSONの形</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/dto/TaskResponse.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">DTO</span>
+                        <strong>TaskResponse.java</strong>
+                        <p>返すJSONの形</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/java/com/naopon/taskapi/exception/GlobalExceptionHandler.java" target="_blank" rel="noreferrer">
+                        <span class="source-type">Exception</span>
+                        <strong>GlobalExceptionHandler.java</strong>
+                        <p>エラーをHTTPレスポンスに変換する</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/resources/application.properties" target="_blank" rel="noreferrer">
+                        <span class="source-type">Config</span>
+                        <strong>application.properties</strong>
+                        <p>DB接続やJPA設定</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/build.gradle" target="_blank" rel="noreferrer">
+                        <span class="source-type">Build</span>
+                        <strong>build.gradle</strong>
+                        <p>依存関係とビルド設定</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/docker-compose.yml" target="_blank" rel="noreferrer">
+                        <span class="source-type">Docker</span>
+                        <strong>docker-compose.yml</strong>
+                        <p>APIとPostgreSQLをまとめて起動する設定</p>
+                    </a>
+                    <a class="source-card" href="https://github.com/naoyas0619-dev/Study-Springboot/blob/main/src/main/resources/static/study-guide.html" target="_blank" rel="noreferrer">
+                        <span class="source-type">Guide</span>
+                        <strong>study-guide.html</strong>
+                        <p>この学習ページ自身のHTML</p>
+                    </a>
+                </div>
+            </section>
+
+            <section class="panel split-panel">
+                <div>
+                    <p class="section-label">Error Flow</p>
+                    <h2>エラーの流れ</h2>
+                    <div class="stack-card">
+                        <div class="stack-item">入力エラー<br><code>title</code> が空</div>
+                        <div class="stack-arrow">↓</div>
+                        <div class="stack-item">Spring Validation</div>
+                        <div class="stack-arrow">↓</div>
+                        <div class="stack-item"><code>GlobalExceptionHandler</code></div>
+                        <div class="stack-arrow">↓</div>
+                        <div class="stack-item">400 Bad Request</div>
+                    </div>
+                </div>
+                <div>
+                    <p class="section-label">Read Order</p>
+                    <h2>おすすめの読み順</h2>
+                    <ol class="read-order">
+                        <li><code>TaskApiApplication.java</code> で起動点を確認する</li>
+                        <li><code>TaskController.java</code> でURLと処理の入口を見る</li>
+                        <li><code>TaskService.java</code> で業務ロジックを追う</li>
+                        <li><code>TaskRepository.java</code> と <code>Task.java</code> でDBとのつながりを見る</li>
+                        <li><code>TaskRequest.java</code> と <code>TaskResponse.java</code> で入出力の形を確認する</li>
+                        <li><code>GlobalExceptionHandler.java</code> でエラー時の流れを理解する</li>
+                    </ol>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/study-guide.js"></script>
+</body>
+</html>

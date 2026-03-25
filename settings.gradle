@@ -1,1 +1,2 @@
+// Defines the project name shown in Gradle output.
 rootProject.name = 'task-api'

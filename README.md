@@ -40,6 +40,10 @@ docker compose up --build
 
 APIは `http://localhost:8080` で利用できます。
 
+学習用ページは `http://localhost:8080/study-guide` で開けます。
+
+環境・構築ガイドページは `http://localhost:8080/project-setup-guide` で開けます。
+
 ### Spring Bootだけ起動する場合
 
 PostgreSQLを先に起動し、環境変数を設定してから起動します。

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task API Project Setup Guide</title>
+    <link rel="stylesheet" href="/project-setup-guide.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <p class="eyebrow">Project Setup Guide</p>
+            <h1>このプロジェクトをゼロから作るための<br>環境・ツール・手順ガイド</h1>
+            <p class="hero-copy">
+                このページは、「このアプリはどんな道具を使って動いているのか」「それぞれがどうつながるのか」
+                「同じ構成のアプリを1から作るには何をすればよいか」を、図と手順でまとめたページです。
+            </p>
+            <div class="hero-links">
+                <a href="#tool-map">使っているものを見る</a>
+                <a href="#relationship">関係図を見る</a>
+                <a href="#glossary">用語集を見る</a>
+                <a href="#install-links">インストールリンクを見る</a>
+                <a href="#from-scratch">1から作る流れを見る</a>
+                <a href="#commands">よく使うコマンドを見る</a>
+                <a href="/study-guide">今ある学習ページへ戻る</a>
+            </div>
+        </header>
+
+        <main class="content">
+            <section id="what-is-this" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">What Is This</p>
+                    <h2>このアプリは何をするものか</h2>
+                    <p>
+                        このプロジェクトは、Spring Bootで作られたタスク管理APIです。
+                        タスクの作成、一覧取得、1件取得、更新、削除をHTTP経由で行えます。
+                    </p>
+                </div>
+
+                <div class="summary-grid">
+                    <article class="summary-card">
+                        <h3>役割</h3>
+                        <p>タスク管理用のREST APIを提供するアプリです。</p>
+                    </article>
+                    <article class="summary-card">
+                        <h3>サーバー側</h3>
+                        <p>Spring Boot がAPI本体として動きます。</p>
+                    </article>
+                    <article class="summary-card">
+                        <h3>データ保存先</h3>
+                        <p>PostgreSQL にタスク情報を保存します。</p>
+                    </article>
+                    <article class="summary-card">
+                        <h3>動かし方</h3>
+                        <p>Docker Compose でAPIとDBをまとめて起動できます。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="tool-map" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Tool Map</p>
+                    <h2>使っているアプリ・ツール一覧</h2>
+                    <p>
+                        まずは「何を使っているか」を分けて理解すると、全体像がつかみやすくなります。
+                    </p>
+                </div>
+
+                <div class="tool-grid">
+                    <article class="tool-card">
+                        <span class="tool-type">Editor</span>
+                        <h3>VSCode</h3>
+                        <p>ソースコードを書く場所です。Javaファイル、設定ファイル、HTML/CSSを編集します。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Runtime</span>
+                        <h3>Java 17</h3>
+                        <p>Spring Bootアプリを動かすための実行環境です。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Framework</span>
+                        <h3>Spring Boot</h3>
+                        <p>APIを作るためのJavaフレームワークです。ControllerやServiceの土台になります。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Build</span>
+                        <h3>Gradle</h3>
+                        <p>ライブラリ管理、ビルド、テスト実行を担当します。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Database</span>
+                        <h3>PostgreSQL</h3>
+                        <p>タスクデータを保存するデータベースです。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Container</span>
+                        <h3>Docker</h3>
+                        <p>APIとDBをコンテナとして動かし、PC環境差を減らします。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Orchestration</span>
+                        <h3>Docker Compose</h3>
+                        <p>APIコンテナとDBコンテナをまとめて起動・停止する設定です。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Browser</span>
+                        <h3>ブラウザ / Swagger UI</h3>
+                        <p>APIの動作確認や学習ページの閲覧に使います。</p>
+                    </article>
+                    <article class="tool-card">
+                        <span class="tool-type">Version Control</span>
+                        <h3>Git / GitHub</h3>
+                        <p>変更履歴の管理と、コードの保存・共有に使います。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="relationship" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Relationship</p>
+                    <h2>どのアプリとどのアプリが、どう関係しているか</h2>
+                    <p>
+                        ここでは「開発する時」と「実際に動かす時」を分けて関係を見ます。
+                    </p>
+                </div>
+
+                <div class="relationship-layout">
+                    <div class="relationship-column">
+                        <h3>開発時の関係</h3>
+                        <div class="chain">
+                            <div class="chain-box box-editor">
+                                <strong>VSCode</strong>
+                                <p>ソースコードを書く</p>
+                            </div>
+                            <div class="chain-arrow">→</div>
+                            <div class="chain-box box-git">
+                                <strong>Git</strong>
+                                <p>変更を保存する</p>
+                            </div>
+                            <div class="chain-arrow">→</div>
+                            <div class="chain-box box-github">
+                                <strong>GitHub</strong>
+                                <p>コードを共有する</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relationship-column">
+                        <h3>実行時の関係</h3>
+                        <div class="runtime-map">
+                            <div class="runtime-box box-browser">
+                                <strong>Browser / Swagger UI</strong>
+                                <p>APIを呼び出す</p>
+                            </div>
+                            <div class="runtime-arrow">↓</div>
+                            <div class="runtime-box box-app">
+                                <strong>Spring Boot App</strong>
+                                <p>HTTPリクエストを処理する</p>
+                            </div>
+                            <div class="runtime-arrow">↓</div>
+                            <div class="runtime-box box-db">
+                                <strong>PostgreSQL</strong>
+                                <p>データを保存する</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="compose-diagram">
+                    <div class="compose-host">
+                        <h3>Docker Compose で見た関係</h3>
+                        <div class="compose-grid">
+                            <div class="compose-box host-box">
+                                <span class="compose-label">Host PC</span>
+                                <p>あなたのPC</p>
+                            </div>
+                            <div class="compose-arrow">↓</div>
+                            <div class="compose-box docker-box">
+                                <span class="compose-label">Docker</span>
+                                <p>コンテナを動かす土台</p>
+                            </div>
+                            <div class="compose-arrow">↓</div>
+                            <div class="compose-services">
+                                <div class="compose-box service-app">
+                                    <span class="compose-label">app service</span>
+                                    <p>Spring Boot API</p>
+                                    <code>port 8080</code>
+                                </div>
+                                <div class="compose-side-arrow">↔</div>
+                                <div class="compose-box service-db">
+                                    <span class="compose-label">db service</span>
+                                    <p>PostgreSQL</p>
+                                    <code>port 5432</code>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="caption">
+                            ブラウザは `localhost:8080` にアクセスし、APIはコンテナ内から `db:5432` に接続します。
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="files-and-tools" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">File And Tool Relation</p>
+                    <h2>どのファイルが、どのツールに関係しているか</h2>
+                    <p>この対応がわかると、修正したい内容に応じて見る場所を選びやすくなります。</p>
+                </div>
+
+                <div class="mapping-grid">
+                    <article class="mapping-card">
+                        <h3>VSCode で主に触るもの</h3>
+                        <ul>
+                            <li><code>src/main/java/...</code>: Javaコード本体</li>
+                            <li><code>src/main/resources/...</code>: 設定や静的ページ</li>
+                            <li><code>README.md</code>: 使い方の説明</li>
+                        </ul>
+                    </article>
+                    <article class="mapping-card">
+                        <h3>Docker に関係するもの</h3>
+                        <ul>
+                            <li><code>Dockerfile</code>: APIコンテナの作り方</li>
+                            <li><code>docker-compose.yml</code>: app と db をまとめる設定</li>
+                            <li><code>.env</code>: Docker Compose の環境変数</li>
+                        </ul>
+                    </article>
+                    <article class="mapping-card">
+                        <h3>Spring Boot / Gradle に関係するもの</h3>
+                        <ul>
+                            <li><code>build.gradle</code>: 依存関係とビルド設定</li>
+                            <li><code>settings.gradle</code>: プロジェクト名</li>
+                            <li><code>application.properties</code>: DB接続やJPA設定</li>
+                        </ul>
+                    </article>
+                    <article class="mapping-card">
+                        <h3>Git / GitHub に関係するもの</h3>
+                        <ul>
+                            <li><code>.gitignore</code>: Gitに含めないファイル</li>
+                            <li><code>.gitattributes</code>: 改行やバイナリ扱いの設定</li>
+                            <li>GitHub: リモート保存先</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="glossary" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Glossary</p>
+                    <h2>初学者向けの用語集</h2>
+                    <p>
+                        初めて学ぶ時につまずきやすい言葉を、できるだけ短く整理しています。
+                        まずはここをざっと見てからコードやDockerの説明に戻ると理解しやすいです。
+                    </p>
+                </div>
+
+                <div class="glossary-grid">
+                    <article class="glossary-card">
+                        <h3>API</h3>
+                        <p>他のアプリから使える機能の入口です。このプロジェクトでは <code>/tasks</code> などのURLがAPIです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Spring Boot</h3>
+                        <p>JavaでWebアプリやAPIを作りやすくするフレームワークです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Framework</h3>
+                        <p>アプリを作るための土台です。Spring Boot は Java の代表的なフレームワークです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>JDK</h3>
+                        <p>Javaのプログラムを作って実行するための開発キットです。Java 17 を使っています。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Gradle</h3>
+                        <p>ライブラリ管理、ビルド、テスト実行をまとめて行うツールです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Dependency</h3>
+                        <p>自分で全部作らず、外部ライブラリとして取り込んで使う部品のことです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Controller</h3>
+                        <p>HTTPリクエストを受け取る入口です。どの処理を呼ぶかを決めます。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Service</h3>
+                        <p>業務ロジックを書く場所です。作成日時設定や存在確認などを担当します。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Repository</h3>
+                        <p>DBへ保存・取得する窓口です。SQLに近い役割をJava側で扱います。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Entity</h3>
+                        <p>DBテーブル1件分のデータをJavaクラスで表したものです。このプロジェクトでは <code>Task</code> が該当します。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>DTO</h3>
+                        <p>受け取り用、返却用など、データの受け渡しだけに使うクラスです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>JPA</h3>
+                        <p>JavaオブジェクトとDBテーブルを対応づけて扱いやすくする仕組みです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>PostgreSQL</h3>
+                        <p>データを保存するデータベースです。タスク情報はここに入ります。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Docker</h3>
+                        <p>アプリを「コンテナ」という実行単位で動かす仕組みです。PC環境差を減らせます。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Container</h3>
+                        <p>アプリを動かすための小さな実行環境です。今回は app と db の2つがあります。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Docker Compose</h3>
+                        <p>複数コンテナをまとめて起動・停止するための設定とコマンドです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Image</h3>
+                        <p>コンテナを作る元になる設計図です。Dockerfile から作られます。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Port</h3>
+                        <p>アプリが外部と通信するための番号です。APIは 8080、DBは 5432 を使っています。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>.env</h3>
+                        <p>ユーザー名やパスワードなど、環境ごとに変わる設定を書くファイルです。</p>
+                    </article>
+                    <article class="glossary-card">
+                        <h3>Git / GitHub</h3>
+                        <p>Gitは変更履歴を残す仕組み、GitHubはその履歴をネット上で保管・共有する場所です。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="install-links" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Install Links</p>
+                    <h2>インストール手順へのリンク集</h2>
+                    <p>
+                        このプロジェクトを1から再現する時に使いやすい、公式サイト中心のリンク集です。
+                        Windows前提で使いやすいものを優先しています。
+                    </p>
+                </div>
+
+                <div class="install-grid">
+                    <a class="install-card" href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Editor</span>
+                        <h3>VS Code ダウンロード</h3>
+                        <p>Visual Studio Code の公式ダウンロードページです。</p>
+                    </a>
+                    <a class="install-card" href="https://code.visualstudio.com/docs/java/java-tutorial" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Guide</span>
+                        <h3>VS Code で Java を始める</h3>
+                        <p>VS Code で Java を動かすための初期設定ガイドです。</p>
+                    </a>
+                    <a class="install-card" href="https://code.visualstudio.com/docs/java/extensions" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Extensions</span>
+                        <h3>VS Code Java 拡張機能</h3>
+                        <p>Extension Pack for Java や Spring Boot 拡張の公式案内です。</p>
+                    </a>
+                    <a class="install-card" href="https://adoptium.net/temurin/releases/?version=17" target="_blank" rel="noreferrer">
+                        <span class="tool-type">JDK</span>
+                        <h3>Eclipse Temurin JDK 17</h3>
+                        <p>Java 17 を入れるための公式ダウンロードページです。</p>
+                    </a>
+                    <a class="install-card" href="https://docs.docker.com/desktop/setup/install/windows-install/" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Container</span>
+                        <h3>Docker Desktop for Windows</h3>
+                        <p>Windows向け Docker Desktop の公式インストール手順です。</p>
+                    </a>
+                    <a class="install-card" href="https://docs.docker.com/desktop/" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Docs</span>
+                        <h3>Docker Desktop 公式ドキュメント</h3>
+                        <p>Docker Desktop 全体の説明と導入入口です。</p>
+                    </a>
+                    <a class="install-card" href="https://git-scm.com/downloads.html" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Version Control</span>
+                        <h3>Git ダウンロード</h3>
+                        <p>Git の公式ダウンロードページです。</p>
+                    </a>
+                    <a class="install-card" href="https://www.postgresql.org/download/windows/" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Database</span>
+                        <h3>PostgreSQL for Windows</h3>
+                        <p>PostgreSQL の Windows インストーラー公式案内です。</p>
+                    </a>
+                    <a class="install-card" href="https://start.spring.io/" target="_blank" rel="noreferrer">
+                        <span class="tool-type">Project Generator</span>
+                        <h3>Spring Initializr</h3>
+                        <p>Spring Boot プロジェクトのひな形を作る公式サイトです。</p>
+                    </a>
+                </div>
+
+                <div class="install-note">
+                    <h3>このプロジェクトを再現する時のおすすめ順</h3>
+                    <ol>
+                        <li>VS Code を入れる</li>
+                        <li>Java 17 を入れる</li>
+                        <li>Docker Desktop を入れる</li>
+                        <li>Git を入れる</li>
+                        <li>Spring Initializr でひな形を作る</li>
+                        <li>必要に応じて PostgreSQL 単体も入れる</li>
+                    </ol>
+                    <p class="caption">
+                        Docker Compose でDBを動かすなら、最初は PostgreSQL 単体インストールを省略しても学習を進めやすいです。
+                    </p>
+                </div>
+            </section>
+
+            <section id="from-scratch" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">From Scratch</p>
+                    <h2>このプロジェクトを1から作るなら、どんな順番になるか</h2>
+                    <p>
+                        ここでは「まったく何もない状態」から、この構成にたどり着くまでの流れを並べています。
+                    </p>
+                </div>
+
+                <div class="roadmap">
+                    <article class="roadmap-step">
+                        <span class="step-no">01</span>
+                        <div>
+                            <h3>開発ツールを用意する</h3>
+                            <p>VSCode、Java 17、Docker、Git をインストールします。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">02</span>
+                        <div>
+                            <h3>Spring Boot のひな形を作る</h3>
+                            <p>Spring Initializr などで、Web / JPA / PostgreSQL / Validation の依存を含むプロジェクトを作成します。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">03</span>
+                        <div>
+                            <h3>DBの設計を決める</h3>
+                            <p><code>tasks</code> テーブルに何を保存するか決めて、対応するEntityクラス <code>Task.java</code> を作ります。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">04</span>
+                        <div>
+                            <h3>Repository を作る</h3>
+                            <p>DBに保存・検索するための窓口として <code>TaskRepository</code> を作ります。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">05</span>
+                        <div>
+                            <h3>Service を作る</h3>
+                            <p>作成日時更新や存在確認など、業務処理を <code>TaskService</code> にまとめます。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">06</span>
+                        <div>
+                            <h3>Controller を作る</h3>
+                            <p><code>/tasks</code> 系のエンドポイントを定義し、HTTPリクエストを受け取れるようにします。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">07</span>
+                        <div>
+                            <h3>DTO と例外処理を追加する</h3>
+                            <p>入力用と出力用のDTOを作り、バリデーションや404処理を整えます。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">08</span>
+                        <div>
+                            <h3>Docker 化する</h3>
+                            <p><code>Dockerfile</code> と <code>docker-compose.yml</code> を作り、APIとDBをまとめて起動できるようにします。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">09</span>
+                        <div>
+                            <h3>Swagger や学習ページを追加する</h3>
+                            <p>自分で触って確認しやすいようにAPIドキュメントや学習用ページを足します。</p>
+                        </div>
+                    </article>
+                    <article class="roadmap-step">
+                        <span class="step-no">10</span>
+                        <div>
+                            <h3>GitHub で管理する</h3>
+                            <p>Gitで履歴を作り、GitHubにpushしてバックアップと共有ができるようにします。</p>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="build-checklist" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Checklist</p>
+                    <h2>このページを見ながら再現するためのチェックリスト</h2>
+                    <p>1から同じものを作る時は、下の順で確認すると進めやすいです。</p>
+                </div>
+
+                <div class="check-grid">
+                    <article class="check-card">
+                        <h3>準備</h3>
+                        <ul>
+                            <li>Java 17 を入れたか</li>
+                            <li>Docker が動くか</li>
+                            <li>VSCode でプロジェクトを開けるか</li>
+                            <li>Git が使えるか</li>
+                        </ul>
+                    </article>
+                    <article class="check-card">
+                        <h3>アプリ</h3>
+                        <ul>
+                            <li>Controller / Service / Repository を作ったか</li>
+                            <li>Entity と DTO を作ったか</li>
+                            <li>例外処理を入れたか</li>
+                            <li><code>application.properties</code> を設定したか</li>
+                        </ul>
+                    </article>
+                    <article class="check-card">
+                        <h3>実行</h3>
+                        <ul>
+                            <li><code>docker compose up --build</code> で起動できるか</li>
+                            <li><code>http://localhost:8080</code> に接続できるか</li>
+                            <li>Swagger UI が開けるか</li>
+                            <li>タスク作成APIが動くか</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="commands" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Commands</p>
+                    <h2>最初に覚えると便利なコマンド</h2>
+                    <p>このプロジェクトを扱う時によく使うコマンドです。</p>
+                </div>
+
+                <div class="command-grid">
+                    <article class="command-card">
+                        <h3>起動</h3>
+                        <pre><code>cp .env.example .env
+docker compose up --build</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>停止</h3>
+                        <pre><code>docker compose down</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>テスト</h3>
+                        <pre><code>./gradlew test</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>Spring Boot単体起動</h3>
+                        <pre><code>./gradlew bootRun</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>Git保存</h3>
+                        <pre><code>git add .
+git commit -m "message"
+git push</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>確認URL</h3>
+                        <pre><code>http://localhost:8080
+http://localhost:8080/swagger-ui/index.html
+http://localhost:8080/study-guide
+http://localhost:8080/project-setup-guide</code></pre>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

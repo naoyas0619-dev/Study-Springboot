@@ -1,17 +1,21 @@
 services:
   db:
+    # PostgreSQL container used by the Spring Boot application.
     image: postgres:16
     container_name: task-db
     environment:
+      # Values come from .env. The defaults are only for local learning use.
       POSTGRES_DB: ${POSTGRES_DB:-taskdb}
       POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
       - "5432:5432"
     volumes:
+      # Keep database data even if the container is recreated.
       - db-data:/var/lib/postgresql/data
 
   app:
+    # Build and run this project as the API container.
     build: .
     container_name: task-api
     depends_on:
@@ -19,9 +23,11 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # The API connects to the database container by service name "db".
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-taskdb}
       DB_USERNAME: ${POSTGRES_USER:-app}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
 
 volumes:
+  # Named volume for PostgreSQL persistent storage.
   db-data:

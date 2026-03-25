@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class TaskApiApplicationTests {
 
+	// This test only checks whether the Spring application can start successfully.
 	@Test
 	void contextLoads() {
 	}

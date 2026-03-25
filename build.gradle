@@ -1,3 +1,4 @@
+// Build settings for the Spring Boot application.
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.11'
@@ -19,17 +20,26 @@ repositories {
 }
 
 dependencies {
+	// Health check and operational endpoints such as /actuator.
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// Core web API support for controllers and JSON responses.
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// Test support for Spring Boot applications.
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// In-memory database used only when running tests.
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// JPA support for mapping Java objects to database tables.
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// PostgreSQL driver used at application runtime.
 	runtimeOnly 'org.postgresql:postgresql'
+	// Bean validation support such as @NotBlank.
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Generates Swagger UI / OpenAPI documents for this API.
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16'
 }
 
 tasks.named('test') {
+	// Use JUnit 5 when Gradle runs tests.
 	useJUnitPlatform()
 }

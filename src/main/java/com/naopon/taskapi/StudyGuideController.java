@@ -1,0 +1,19 @@
+package com.naopon.taskapi;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+// Redirects to the static study guide page for this project.
+@Controller
+public class StudyGuideController {
+
+    @GetMapping("/study-guide")
+    public String studyGuide() {
+        return "redirect:/study-guide.html";
+    }
+
+    @GetMapping("/project-setup-guide")
+    public String projectSetupGuide() {
+        return "redirect:/project-setup-guide.html";
+    }
+}
