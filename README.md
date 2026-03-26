@@ -55,6 +55,14 @@ export DB_PASSWORD=your-password
 ./gradlew bootRun
 ```
 
+## テスト実行
+
+```bash
+./gradlew test
+```
+
+バリデーションエラーや存在しないIDでは、共通のエラーレスポンス形式でJSONを返します。
+
 ## API一覧
 
 ### タスク作成

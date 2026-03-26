@@ -53,14 +53,18 @@ public class TaskController {
 
     // Returns one task by its ID.
     @GetMapping("/tasks/{id}")
-    public ResponseEntity<Task> getById(@PathVariable long id) {
-        return ResponseEntity.ok(service.findById(id));
+    public ResponseEntity<TaskResponse> getById(@PathVariable long id) {
+        return ResponseEntity.ok(service.toResponse(service.findById(id)));
     }
 
     // Updates the title of an existing task.
     @PutMapping("/tasks/{id}")
-    public ResponseEntity<Task> update(@PathVariable long id, @RequestBody Task updatedTask) {
-        return ResponseEntity.ok(service.update(id, updatedTask));
+    public ResponseEntity<TaskResponse> update(
+            @PathVariable long id,
+            @Valid @RequestBody TaskRequest request
+    ) {
+        Task updatedTask = service.update(id, request.getTitle());
+        return ResponseEntity.ok(service.toResponse(updatedTask));
     }
 
     // Deletes the task with the specified ID.

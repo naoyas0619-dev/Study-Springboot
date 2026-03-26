@@ -22,8 +22,9 @@ public class TaskService {
 
     // Adds timestamps and stores a new task.
     public Task create(Task task) {
-        task.setCreatedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        task.setCreatedAt(now);
+        task.setUpdatedAt(now);
         return repo.save(task);
     }
 
@@ -39,11 +40,11 @@ public class TaskService {
     }
 
     // Updates only the fields that are allowed to change.
-    public Task update(long id, Task updatedTask) {
+    public Task update(long id, String title) {
         Task task = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("task not found"));
 
-        task.setTitle(updatedTask.getTitle());
+        task.setTitle(title);
         task.setUpdatedAt(LocalDateTime.now());
 
         return repo.save(task);

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 public class TaskRequest {
 
     // Reject empty titles before the request reaches the service layer.
-    @NotBlank
+    @NotBlank(message = "must not be blank")
     private String title;
 
     // Default constructor is required so Spring can create this object from JSON.
