@@ -66,6 +66,18 @@ class TaskControllerTest {
     }
 
     @Test
+    void createWithMalformedJsonReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Malformed JSON request"))
+                .andExpect(jsonPath("$.path").value("/tasks"));
+    }
+
+    @Test
     void getByIdReturnsTask() throws Exception {
         Task task = saveTask("read docs");
 
@@ -83,6 +95,16 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").value("task not found"))
                 .andExpect(jsonPath("$.path").value("/tasks/9999"));
+    }
+
+    @Test
+    void getByIdWithInvalidIdReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/tasks/{id}", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter 'id'"))
+                .andExpect(jsonPath("$.path").value("/tasks/abc"));
     }
 
     @Test
@@ -160,6 +182,20 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").value("task not found"))
                 .andExpect(jsonPath("$.path").value("/tasks/9999"));
+    }
+
+    @Test
+    void updateWithMalformedJsonReturnsBadRequest() throws Exception {
+        Task task = saveTask("before");
+
+        mockMvc.perform(put("/tasks/{id}", task.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Malformed JSON request"))
+                .andExpect(jsonPath("$.path").value("/tasks/" + task.getId()));
     }
 
     @Test
