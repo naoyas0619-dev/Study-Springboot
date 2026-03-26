@@ -5,10 +5,12 @@ import com.naopon.taskapi.dto.TaskResponse;
 import com.naopon.taskapi.model.Task;
 import com.naopon.taskapi.service.TaskService;
 import jakarta.validation.Valid;
+import java.net.URI;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,9 +33,16 @@ public class TaskController {
 
     // Creates a new task from the request body sent by the client.
     @PostMapping("/tasks")
-    public TaskResponse create(@Valid @RequestBody TaskRequest request) {
+    public ResponseEntity<TaskResponse> create(@Valid @RequestBody TaskRequest request) {
         Task created = service.create(new Task(null, request.getTitle()));
-        return service.toResponse(created);
+        TaskResponse response = service.toResponse(created);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).body(response);
     }
 
     // Returns tasks as a paged list. If title is provided, it filters by title.

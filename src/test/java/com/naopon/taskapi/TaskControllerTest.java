@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.naopon.taskapi.dto.TaskRequest;
 import com.naopon.taskapi.model.Task;
 import com.naopon.taskapi.repository.TaskRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,12 +44,20 @@ class TaskControllerTest {
         TaskRequest request = new TaskRequest();
         request.setTitle("write tests");
 
-        mockMvc.perform(post("/tasks")
+        MvcResult result = mockMvc.perform(post("/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
-                .andExpect(jsonPath("$.title").value("write tests"));
+                .andExpect(jsonPath("$.title").value("write tests"))
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        Long id = objectMapper.readTree(responseBody).get("id").asLong();
+        String location = result.getResponse().getHeader("Location");
+
+        Assertions.assertNotNull(location);
+        Assertions.assertTrue(location.endsWith("/tasks/" + id));
     }
 
     @Test

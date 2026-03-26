@@ -63,11 +63,23 @@ export DB_PASSWORD=your-password
 
 バリデーションエラーや存在しないIDでは、共通のエラーレスポンス形式でJSONを返します。
 
+```json
+{
+  "timestamp": "2026-03-27T02:00:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "task not found",
+  "path": "/tasks/9999"
+}
+```
+
 ## API一覧
 
 ### タスク作成
 
 `POST /tasks`
+
+成功時は `201 Created` を返し、作成したリソースの URL を `Location` ヘッダに設定します。
 
 ```bash
 curl -X POST http://localhost:8080/tasks \
@@ -75,9 +87,21 @@ curl -X POST http://localhost:8080/tasks \
   -d '{"title":"task"}'
 ```
 
+レスポンス例:
+
+```http
+HTTP/1.1 201 Created
+Location: http://localhost:8080/tasks/1
+Content-Type: application/json
+
+{"id":1,"title":"task"}
+```
+
 ### タスク一覧
 
 `GET /tasks`
+
+`title` による検索、`page` / `size` / `sort` によるページングに対応しています。
 
 ```bash
 curl http://localhost:8080/tasks

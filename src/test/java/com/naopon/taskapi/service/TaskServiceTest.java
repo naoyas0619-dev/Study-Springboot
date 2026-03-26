@@ -16,6 +16,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,10 +73,22 @@ class TaskServiceTest {
 
     @Test
     void deleteWithMissingTaskThrowsNotFoundException() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(99L))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("task not found");
+
+        verify(repository, never()).delete(any(Task.class));
+    }
+
+    @Test
+    void deleteExistingTaskRemovesLoadedEntity() {
+        Task existing = new Task(1L, "cleanup");
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        service.delete(1L);
+
+        verify(repository).delete(same(existing));
     }
 }

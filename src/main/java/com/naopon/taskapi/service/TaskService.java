@@ -52,10 +52,10 @@ public class TaskService {
 
     // Deletes a task after confirming it exists.
     public void delete(long id) {
-        if (!repo.existsById(id)) {
-            throw new NotFoundException("task not found");
-        }
-        repo.deleteById(id);
+        Task task = repo.findById(id)
+                .orElseThrow(() -> new NotFoundException("task not found"));
+
+        repo.delete(task);
     }
 
     // Converts the entity used inside the app into a simpler API response object.
