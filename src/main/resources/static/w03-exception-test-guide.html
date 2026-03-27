@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W03「例外処理 + テスト追加」</title>
+    <link rel="stylesheet" href="/w03-exception-test-guide.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <p class="eyebrow">Milestone Learning Page</p>
+            <h1>W03「例外処理 + テスト追加」</h1>
+            <p class="hero-copy">
+                このページは、このチャットで追加した「例外処理の整理」「エラーレスポンス統一」
+                「MockMvc / Service テスト追加」「201 Created + Location 対応」を、
+                学習用にまとめ直したガイドです。
+            </p>
+            <div class="hero-links">
+                <a href="#overview">今回やったこと</a>
+                <a href="#exception-map">例外処理の流れ</a>
+                <a href="#error-shape">エラーレスポンスの形</a>
+                <a href="#test-matrix">追加テスト一覧</a>
+                <a href="#status-upgrade">201 Created の意味</a>
+                <a href="#files">変更ファイル</a>
+                <a href="#commands">確認コマンド</a>
+                <a href="/study-guide">既存の学習ページへ戻る</a>
+            </div>
+        </header>
+
+        <main class="content">
+            <section id="overview" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Overview</p>
+                    <h2>今回のW03で整理したこと</h2>
+                    <p>
+                        「動けばOK」の状態から一歩進めて、失敗した時の返し方と、
+                        それを守り続けるテストを入れたのが今回のテーマです。
+                    </p>
+                </div>
+
+                <div class="summary-grid">
+                    <article class="summary-card">
+                        <span class="card-tag">Exception</span>
+                        <h3>例外を HTTP レスポンスに変換</h3>
+                        <p><code>NotFoundException</code> やバリデーションエラーを、共通のJSON形式で返すようにしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Response</span>
+                        <h3>レスポンスの見た目を揃える</h3>
+                        <p><code>timestamp / status / error / message / path</code> を含むエラー形式に統一しました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Test</span>
+                        <h3>主要な正常系と異常系を追加</h3>
+                        <p><code>create / get / update / delete / validation / not found / malformed JSON</code> をカバーしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">REST</span>
+                        <h3>POST を 201 Created に改善</h3>
+                        <p>作成系APIとして自然なステータスにし、<code>Location</code> ヘッダで新規URLも返すようにしました。</p>
+                    </article>
+                </div>
+
+                <div class="checkpoint-row">
+                    <div class="checkpoint">
+                        <strong>Before</strong>
+                        <p>失敗時の返し方や更新APIの入力ルールが揃っていない状態</p>
+                    </div>
+                    <div class="checkpoint-arrow">→</div>
+                    <div class="checkpoint">
+                        <strong>After</strong>
+                        <p>エラーの形、主要ケースのテスト、作成APIのステータスが揃った状態</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="exception-map" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Exception Map</p>
+                    <h2>例外処理がどう流れるか</h2>
+                    <p>
+                        Controller や Service で起きた失敗を、そのまま 500 にせず、
+                        <code>GlobalExceptionHandler</code> が受けて HTTP エラーへ変換します。
+                    </p>
+                </div>
+
+                <div class="flow-rail">
+                    <div class="flow-step step-request">
+                        <span class="step-no">1</span>
+                        <h3>リクエスト受信</h3>
+                        <p><code>TaskController</code> が JSON や PathVariable を受け取ります。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-validate">
+                        <span class="step-no">2</span>
+                        <h3>バリデーション / 型変換</h3>
+                        <p><code>@Valid</code> や PathVariable 変換で問題があると例外が発生します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-service">
+                        <span class="step-no">3</span>
+                        <h3>Service 実行</h3>
+                        <p>存在しないIDなら <code>NotFoundException</code> を投げます。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-handler">
+                        <span class="step-no">4</span>
+                        <h3>GlobalExceptionHandler</h3>
+                        <p>例外の種類ごとに <code>400 / 404</code> へ変換します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-response">
+                        <span class="step-no">5</span>
+                        <h3>JSON 返却</h3>
+                        <p>クライアントは一貫したエラー形式で原因を読めます。</p>
+                    </div>
+                </div>
+
+                <div class="split-grid">
+                    <article class="compare-card">
+                        <p class="mini-label">Handled Exceptions</p>
+                        <ul>
+                            <li><code>MethodArgumentNotValidException</code></li>
+                            <li><code>NotFoundException</code></li>
+                            <li><code>HttpMessageNotReadableException</code></li>
+                            <li><code>MethodArgumentTypeMismatchException</code></li>
+                        </ul>
+                    </article>
+                    <article class="compare-card">
+                        <p class="mini-label">Why It Matters</p>
+                        <ul>
+                            <li>フロント側が失敗理由を判定しやすい</li>
+                            <li>API利用者がデバッグしやすい</li>
+                            <li>Controller ごとの重複コードを減らせる</li>
+                            <li>ポートフォリオとして設計意図を見せやすい</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="error-shape" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Error Shape</p>
+                    <h2>共通エラーレスポンスの見方</h2>
+                    <p>エラー時の JSON は、失敗の種類と対象URLをまとめて返す形にしています。</p>
+                </div>
+
+                <div class="error-layout">
+                    <div class="code-card">
+<pre><code>{
+  "timestamp": "2026-03-27T02:00:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "task not found",
+  "path": "/tasks/9999"
+}</code></pre>
+                    </div>
+
+                    <div class="field-grid">
+                        <article class="field-card">
+                            <h3>timestamp</h3>
+                            <p>いつ失敗したかを表します。</p>
+                        </article>
+                        <article class="field-card">
+                            <h3>status</h3>
+                            <p>HTTPステータスコードです。400 や 404 を数値で確認できます。</p>
+                        </article>
+                        <article class="field-card">
+                            <h3>error</h3>
+                            <p><code>Bad Request</code> や <code>Not Found</code> など、人が読める種別です。</p>
+                        </article>
+                        <article class="field-card">
+                            <h3>message</h3>
+                            <p>今回の失敗理由です。例: <code>title must not be blank</code></p>
+                        </article>
+                        <article class="field-card">
+                            <h3>path</h3>
+                            <p>どのURLで起きたかを表します。ログとの突合にも便利です。</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section id="test-matrix" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Test Matrix</p>
+                    <h2>今回追加したテストの全体像</h2>
+                    <p>
+                        「正常系だけ」ではなく、「壊れ方」まで確かめるのが今回の狙いです。
+                        Controller は <code>MockMvc</code>、Service はユニットテストで確認しています。
+                    </p>
+                </div>
+
+                <div class="matrix-grid">
+                    <article class="matrix-card">
+                        <h3>Controller 正常系</h3>
+                        <ul>
+                            <li>タスク作成</li>
+                            <li>1件取得</li>
+                            <li>一覧取得</li>
+                            <li>検索</li>
+                            <li>更新</li>
+                            <li>削除</li>
+                        </ul>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>Controller 異常系</h3>
+                        <ul>
+                            <li>空タイトルの 400</li>
+                            <li>壊れた JSON の 400</li>
+                            <li>不正な ID 型の 400</li>
+                            <li>存在しない ID の 404</li>
+                        </ul>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>Service テスト</h3>
+                        <ul>
+                            <li><code>create</code> で timestamp が入る</li>
+                            <li><code>update</code> で title / updatedAt が変わる</li>
+                            <li><code>findById</code> の not found</li>
+                            <li><code>delete</code> の not found / success</li>
+                        </ul>
+                    </article>
+                </div>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <span class="timeline-badge">1</span>
+                        <div>
+                            <h3>Controller で外側の契約を確認</h3>
+                            <p>HTTP ステータス、レスポンスJSON、検索・ページングの返り方を検証します。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-badge">2</span>
+                        <div>
+                            <h3>Service で重要ロジックを確認</h3>
+                            <p>timestamp 設定や削除ロジックの分岐など、APIの土台になる処理を押さえます。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-badge">3</span>
+                        <div>
+                            <h3>Gradle でまとめて回帰確認</h3>
+                            <p><code>./gradlew test</code> と <code>./gradlew build</code> で全体が崩れていないことを見ます。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="status-upgrade" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">REST Upgrade</p>
+                    <h2>なぜ 201 Created + Location にしたのか</h2>
+                    <p>
+                        新規作成 API では、「作れた」だけでなく「どこに作られたか」まで伝えると、
+                        REST API として自然で、ポートフォリオでも意図が伝わりやすくなります。
+                    </p>
+                </div>
+
+                <div class="rest-grid">
+                    <article class="rest-card">
+                        <h3>以前の返し方</h3>
+                        <p><code>200 OK</code> で本文だけ返す</p>
+                    </article>
+                    <article class="rest-card emphasized">
+                        <h3>今回の返し方</h3>
+                        <p><code>201 Created</code> と <code>Location: /tasks/{id}</code> を返す</p>
+                    </article>
+                </div>
+
+                <div class="code-card">
+<pre><code>POST /tasks
+
+HTTP/1.1 201 Created
+Location: http://localhost:8080/tasks/1
+Content-Type: application/json
+
+{"id":1,"title":"task"}</code></pre>
+                </div>
+            </section>
+
+            <section id="files" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Files</p>
+                    <h2>どのファイルを触ったか</h2>
+                    <p>W03 の変更は「例外処理」「APIレスポンス」「テスト」「README」にまたがっています。</p>
+                </div>
+
+                <div class="file-grid">
+                    <article class="file-card">
+                        <h3>APIとレスポンス</h3>
+                        <p><code>TaskController</code> / <code>TaskService</code> / <code>TaskRequest</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>例外処理</h3>
+                        <p><code>GlobalExceptionHandler</code> / <code>ErrorResponse</code> / <code>NotFoundException</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>テスト</h3>
+                        <p><code>TaskControllerTest</code> / <code>TaskServiceTest</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>ドキュメント</h3>
+                        <p><code>README.md</code> に test 実行方法とエラーレスポンス例を追記しました。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="commands" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Commands</p>
+                    <h2>確認に使ったコマンド</h2>
+                    <p>変更後は、最低でもテストとビルドを回して全体の整合性を見ます。</p>
+                </div>
+
+                <div class="command-grid">
+                    <article class="command-card">
+                        <h3>テスト</h3>
+<pre><code>./gradlew test</code></pre>
+                        <p>Controller / Service テストがすべて通るか確認します。</p>
+                    </article>
+                    <article class="command-card">
+                        <h3>ビルド</h3>
+<pre><code>./gradlew build</code></pre>
+                        <p>アプリ全体がパッケージングまで通るか確認します。</p>
+                    </article>
+                    <article class="command-card">
+                        <h3>見るポイント</h3>
+                        <p><code>400 / 404 / 201 / 204</code> の返り方、レスポンス JSON、README の説明を見直します。</p>
+                    </article>
+                </div>
+
+                <div class="closing-note">
+                    <p class="mini-label">Learning Goal</p>
+                    <h3>今回のW03で身につく考え方</h3>
+                    <p>
+                        APIは「成功した時のコード」だけではなく、「失敗した時にどう返すか」と
+                        「その品質をテストでどう守るか」まで作って、実務に近い形になります。
+                    </p>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

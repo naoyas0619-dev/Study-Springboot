@@ -16,4 +16,9 @@ public class StudyGuideController {
     public String projectSetupGuide() {
         return "redirect:/project-setup-guide.html";
     }
+
+    @GetMapping("/w03-exception-test-guide")
+    public String w03ExceptionTestGuide() {
+        return "redirect:/w03-exception-test-guide.html";
+    }
 }
