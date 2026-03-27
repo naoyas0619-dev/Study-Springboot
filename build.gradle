@@ -22,10 +22,14 @@ repositories {
 dependencies {
 	// Health check and operational endpoints such as /actuator.
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// Security support for authentication and authorization.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
 	// Core web API support for controllers and JSON responses.
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// Test support for Spring Boot applications.
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// Security-focused test helpers for MockMvc and integration tests.
+	testImplementation 'org.springframework.security:spring-security-test'
 	// In-memory database used only when running tests.
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -37,6 +41,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// Generates Swagger UI / OpenAPI documents for this API.
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16'
+	// JWT creation and validation.
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 }
 
 tasks.named('test') {

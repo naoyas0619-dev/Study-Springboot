@@ -4,6 +4,7 @@ import com.naopon.taskapi.dto.TaskRequest;
 import com.naopon.taskapi.dto.TaskResponse;
 import com.naopon.taskapi.model.Task;
 import com.naopon.taskapi.service.TaskService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 // Handles HTTP requests related to tasks.
 @RestController
+@SecurityRequirement(name = "bearerAuth")
 public class TaskController {
 
     private final TaskService service;
