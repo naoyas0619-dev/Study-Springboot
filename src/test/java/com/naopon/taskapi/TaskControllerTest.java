@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -143,6 +144,25 @@ class TaskControllerTest {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void studyGuideRedirectEndpointIsPublic() throws Exception {
+        mockMvc.perform(get("/study-guide"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/study-guide.html"));
+    }
+
+    @Test
+    void studyGuideStaticHtmlIsPublic() throws Exception {
+        mockMvc.perform(get("/study-guide.html"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void w04GuideStaticHtmlIsPublic() throws Exception {
+        mockMvc.perform(get("/w04-jwt-auth-guide.html"))
+                .andExpect(status().isOk());
     }
 
     @Test

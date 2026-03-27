@@ -47,10 +47,15 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(
                                 "/study-guide",
+                                "/study-guide.html",
                                 "/project-setup-guide",
+                                "/project-setup-guide.html",
                                 "/w03-exception-test-guide",
-                                "/w04-jwt-auth-guide"
+                                "/w03-exception-test-guide.html",
+                                "/w04-jwt-auth-guide",
+                                "/w04-jwt-auth-guide.html"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/*.css", "/*.js", "/favicon.ico").permitAll()
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/admin/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/auth/logout").hasRole("USER")

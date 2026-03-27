@@ -137,6 +137,18 @@ code {
     margin-top: 28px;
 }
 
+.milestone-callout {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: center;
+    margin-top: 24px;
+    padding: 22px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    border-radius: 24px;
+    background: linear-gradient(135deg, rgba(215, 239, 233, 0.72), rgba(255, 255, 255, 0.88));
+}
+
 .hero-links a {
     display: inline-flex;
     align-items: center;
@@ -716,6 +728,10 @@ code {
     }
 
     .guide-bridge {
+        grid-template-columns: 1fr;
+    }
+
+    .milestone-callout {
         grid-template-columns: 1fr;
     }
 }

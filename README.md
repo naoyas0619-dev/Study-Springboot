@@ -77,6 +77,12 @@ APIは `http://localhost:8080` で利用できます。
 - W04学習用ページ: `http://localhost:8080/w04-jwt-auth-guide`
 - 環境・構築ガイド: `http://localhost:8080/project-setup-guide`
 
+学習用ページや静的HTMLを変更したのに画面へ反映されない場合:
+
+- `docker compose` で起動しているなら、`Dockerfile` でソースをイメージへ `COPY` しているため、`docker compose up --build` で再ビルドが必要です
+- `bootRun` で起動しているなら、アプリを再起動してください
+- ブラウザは `Ctrl + F5` などでハードリロードすると確認しやすいです
+
 ### Spring Bootだけ起動する場合
 
 PostgreSQLを先に起動し、環境変数を設定してから起動します。
