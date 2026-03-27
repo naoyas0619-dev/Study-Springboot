@@ -45,7 +45,12 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login", "/auth/refresh", "/hello", "/error").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/study-guide", "/project-setup-guide", "/w03-exception-test-guide").permitAll()
+                        .requestMatchers(
+                                "/study-guide",
+                                "/project-setup-guide",
+                                "/w03-exception-test-guide",
+                                "/w04-jwt-auth-guide"
+                        ).permitAll()
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/admin/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/auth/logout").hasRole("USER")

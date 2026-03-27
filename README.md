@@ -74,6 +74,7 @@ APIは `http://localhost:8080` で利用できます。
 - Health Check: `http://localhost:8080/actuator/health`
 - 学習用ページ: `http://localhost:8080/study-guide`
 - W03学習用ページ: `http://localhost:8080/w03-exception-test-guide`
+- W04学習用ページ: `http://localhost:8080/w04-jwt-auth-guide`
 - 環境・構築ガイド: `http://localhost:8080/project-setup-guide`
 
 ### Spring Bootだけ起動する場合
@@ -132,6 +133,7 @@ export AUTH_RATE_LIMIT_BLOCK_DURATION=PT15M
 - `GET /study-guide`
 - `GET /project-setup-guide`
 - `GET /w03-exception-test-guide`
+- `GET /w04-jwt-auth-guide`
 - 静的リソース配信 (`/*.html`, `/*.css`, `/*.js`, `/webjars/**` など)
 
 ### 認証必須URL

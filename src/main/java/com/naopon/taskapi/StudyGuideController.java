@@ -21,4 +21,9 @@ public class StudyGuideController {
     public String w03ExceptionTestGuide() {
         return "redirect:/w03-exception-test-guide.html";
     }
+
+    @GetMapping("/w04-jwt-auth-guide")
+    public String w04JwtAuthGuide() {
+        return "redirect:/w04-jwt-auth-guide.html";
+    }
 }

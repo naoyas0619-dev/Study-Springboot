@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W04「JWT認証実装」</title>
+    <link rel="stylesheet" href="/w04-jwt-auth-guide.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <p class="eyebrow">Milestone Learning Page</p>
+            <h1>W04「JWT認証実装」</h1>
+            <p class="hero-copy">
+                このページは、このチャットで追加した
+                「Spring Security + JWT」「refresh token ローテーション」「logout による revoke」
+                「DB永続化された rate limit」「ADMIN向けユーザー管理API」を、
+                学習用にまとめ直したページです。
+            </p>
+            <div class="hero-links">
+                <a href="#overview">今回やったこと</a>
+                <a href="#auth-flow">認証フロー</a>
+                <a href="#token-map">tokenの役割</a>
+                <a href="#security-hardening">強化ポイント</a>
+                <a href="#admin-api">管理者API</a>
+                <a href="#test-matrix">追加テスト</a>
+                <a href="#files">変更ファイル</a>
+                <a href="#commands">確認コマンド</a>
+                <a href="/study-guide">既存の学習ページへ戻る</a>
+            </div>
+        </header>
+
+        <main class="content">
+            <section id="overview" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Overview</p>
+                    <h2>今回のW04で追加したもの</h2>
+                    <p>
+                        今回は「Task API が使える」状態から一段進めて、
+                        「誰が使っているか」「どの権限を持っているか」「tokenをどう無効化するか」まで扱う形にしました。
+                    </p>
+                </div>
+
+                <div class="summary-grid">
+                    <article class="summary-card">
+                        <span class="card-tag">Security</span>
+                        <h3>Spring Security + JWT</h3>
+                        <p><code>/tasks/**</code> を保護し、未認証は <code>401</code>、認証済みは成功する形にしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Token</span>
+                        <h3>access / refresh の2種類</h3>
+                        <p>短命な <code>access token</code> と、再発行用の <code>refresh token</code> を分けています。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Revoke</span>
+                        <h3>logoutで即時失効</h3>
+                        <p><code>tokenVersion</code> と refresh token 削除により、logout 後は使い続けられない形にしています。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Admin</span>
+                        <h3>ユーザー管理API</h3>
+                        <p><code>ADMIN</code> がユーザーを作成・無効化・ロール変更できるようにしました。</p>
+                    </article>
+                </div>
+
+                <div class="checkpoint-row">
+                    <div class="checkpoint">
+                        <strong>Before</strong>
+                        <p>Task API は誰でも叩ける状態で、利用者の区別がありませんでした。</p>
+                    </div>
+                    <div class="checkpoint-arrow">→</div>
+                    <div class="checkpoint">
+                        <strong>After</strong>
+                        <p>認証、認可、失効、再発行、運用用のユーザー管理まで揃ったAPIになりました。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="auth-flow" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Auth Flow</p>
+                    <h2>ログインからTask API利用までの流れ</h2>
+                    <p>
+                        認証の流れを追うと、Controller、Service、DB、Filter がどう連携しているかが見えます。
+                    </p>
+                </div>
+
+                <div class="flow-rail">
+                    <div class="flow-step step-request">
+                        <span class="step-no">1</span>
+                        <h3>ログイン</h3>
+                        <p><code>POST /auth/login</code> に username / password を送ります。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-service">
+                        <span class="step-no">2</span>
+                        <h3>認証</h3>
+                        <p><code>AuthService</code> が Spring Security 経由でDBユーザーを照合します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-handler">
+                        <span class="step-no">3</span>
+                        <h3>token発行</h3>
+                        <p><code>JwtService</code> が access token、<code>RefreshTokenService</code> が refresh token を発行します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-validate">
+                        <span class="step-no">4</span>
+                        <h3>Bearer送信</h3>
+                        <p>クライアントは <code>Authorization: Bearer ...</code> で保護APIへアクセスします。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step step-response">
+                        <span class="step-no">5</span>
+                        <h3>Filter検証</h3>
+                        <p><code>JwtAuthenticationFilter</code> が token と現在のDBユーザー状態を検証して通過させます。</p>
+                    </div>
+                </div>
+
+                <div class="split-grid">
+                    <article class="compare-card">
+                        <p class="mini-label">Public Endpoints</p>
+                        <ul>
+                            <li><code>POST /auth/login</code></li>
+                            <li><code>POST /auth/refresh</code></li>
+                            <li><code>GET /swagger-ui/**</code></li>
+                            <li><code>GET /actuator/health</code></li>
+                        </ul>
+                    </article>
+                    <article class="compare-card">
+                        <p class="mini-label">Protected Endpoints</p>
+                        <ul>
+                            <li><code>/tasks/**</code> は <code>ROLE_USER</code> 以上</li>
+                            <li><code>/admin/users/**</code> は <code>ROLE_ADMIN</code> のみ</li>
+                            <li><code>POST /auth/logout</code> は認証必須</li>
+                        </ul>
+                    </article>
+                    <article class="compare-card">
+                        <p class="mini-label">Error Responses</p>
+                        <ul>
+                            <li>未認証: <code>401 Unauthorized</code></li>
+                            <li>権限不足: <code>403 Forbidden</code></li>
+                            <li>rate limit: <code>429 Too Many Requests</code></li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="token-map" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Token Map</p>
+                    <h2>access token と refresh token の役割</h2>
+                    <p>2種類のtokenを分けることで、使いやすさと安全性のバランスを取っています。</p>
+                </div>
+
+                <div class="token-grid">
+                    <article class="token-card">
+                        <h3>access token</h3>
+                        <ul>
+                            <li>短い有効期限で保護APIにアクセスするためのtoken</li>
+                            <li><code>username / role / tokenVersion</code> を持つ</li>
+                            <li>logout やユーザー無効化で使えなくなる</li>
+                        </ul>
+                    </article>
+                    <article class="token-card">
+                        <h3>refresh token</h3>
+                        <ul>
+                            <li>access token を再発行するためのtoken</li>
+                            <li>DBには生値ではなくハッシュで保存</li>
+                            <li>1回使うとローテーションされ、古いtokenは再利用不可</li>
+                        </ul>
+                    </article>
+                </div>
+
+                <div class="code-pair">
+                    <div class="code-card">
+<pre><code>POST /auth/login
+{
+  "username": "appuser",
+  "password": "change-this-password-123"
+}</code></pre>
+                    </div>
+                    <div class="code-card">
+<pre><code>{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "tokenType": "Bearer",
+  "accessExpiresInSeconds": 900,
+  "refreshExpiresInSeconds": 604800,
+  "role": "ADMIN"
+}</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <section id="security-hardening" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Hardening</p>
+                    <h2>今回入れたセキュリティ強化</h2>
+                    <p>
+                        ただJWTを返すだけではなく、「継続運用で困りやすいところ」まで埋めたのが今回のポイントです。
+                    </p>
+                </div>
+
+                <div class="matrix-grid">
+                    <article class="matrix-card">
+                        <h3>DBユーザー管理</h3>
+                        <p><code>app_users</code> に username / password_hash / role / enabled / token_version を持たせています。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>logoutによる revoke</h3>
+                        <p><code>tokenVersion</code> を進めて、発行済み access token を使えなくします。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>refresh token ローテーション</h3>
+                        <p>再発行時に古い refresh token を無効化し、使い回しを防ぎます。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>DB永続化された rate limit</h3>
+                        <p><code>auth_rate_limits</code> に失敗回数を持たせ、再起動後や複数インスタンスでも維持します。</p>
+                    </article>
+                </div>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <span class="timeline-badge">1</span>
+                        <div>
+                            <h3>失敗回数をDBに保存</h3>
+                            <p>in-memoryではなくDBに持つことで、アプリの寿命に依存しない制限にしました。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-badge">2</span>
+                        <div>
+                            <h3>ユーザー無効化の即時反映</h3>
+                            <p>JWTに入っている情報だけを信じず、現在のDBユーザー状態も見て拒否します。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-badge">3</span>
+                        <div>
+                            <h3>監査ログを残す</h3>
+                            <p>login success / failure、rate limit、logout、invalid token をログに出します。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="admin-api" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Admin API</p>
+                    <h2>なぜ ADMIN 向けユーザー管理APIを足したのか</h2>
+                    <p>
+                        bootstrap user だけでは「最初の1人」は作れても、
+                        その後の運用の見せ場が弱くなります。そこで、管理者が利用者を追加・更新できるAPIを入れました。
+                    </p>
+                </div>
+
+                <div class="summary-grid admin-grid">
+                    <article class="summary-card">
+                        <span class="card-tag">List</span>
+                        <h3>GET /admin/users</h3>
+                        <p>登録済みユーザーの一覧を確認できます。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Create</span>
+                        <h3>POST /admin/users</h3>
+                        <p>新しい USER / ADMIN を作成できます。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Update</span>
+                        <h3>PATCH /admin/users/{id}</h3>
+                        <p>role / enabled / password を更新できます。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Revoke</span>
+                        <h3>更新時はtokenも失効</h3>
+                        <p>無効化やパスワード変更時は tokenVersion を進めて refresh token も削除します。</p>
+                    </article>
+                </div>
+
+                <div class="code-card wide-code">
+<pre><code>PATCH /admin/users/{id}
+{
+  "enabled": false
+}</code></pre>
+                </div>
+            </section>
+
+            <section id="test-matrix" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Test Matrix</p>
+                    <h2>今回追加・拡張したテスト</h2>
+                    <p>
+                        W04では正常系だけでなく、認証まわりの壊れ方や運用上の更新反映もテストしています。
+                    </p>
+                </div>
+
+                <div class="matrix-grid">
+                    <article class="matrix-card">
+                        <h3>認証基本</h3>
+                        <ul>
+                            <li>ログイン成功で token pair を返す</li>
+                            <li>JWTなしで <code>401</code></li>
+                            <li>壊れたJWTで <code>401</code></li>
+                        </ul>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>refresh / revoke</h3>
+                        <ul>
+                            <li>refreshで新しい token pair を返す</li>
+                            <li>使い終わった refresh token の再利用拒否</li>
+                            <li>logout 後の access / refresh token 無効化</li>
+                        </ul>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>運用変更の反映</h3>
+                        <ul>
+                            <li>無効化ユーザーの access token 拒否</li>
+                            <li>無効化ユーザーの refresh 拒否</li>
+                            <li>管理者更新で token revoke</li>
+                        </ul>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>管理者API</h3>
+                        <ul>
+                            <li>ADMIN がユーザー作成できる</li>
+                            <li>重複usernameは <code>409</code></li>
+                            <li>USER は管理APIに入れず <code>403</code></li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="files" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">File Map</p>
+                    <h2>W04で主に見ればよいファイル</h2>
+                    <p>学習するときは、役割ごとにファイルを見ると理解しやすいです。</p>
+                </div>
+
+                <div class="file-grid">
+                    <article class="file-card">
+                        <h3>認証の入口</h3>
+                        <p><code>AuthController</code> / <code>AuthService</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>Security設定</h3>
+                        <p><code>SecurityConfig</code> / <code>JwtAuthenticationFilter</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>token関連</h3>
+                        <p><code>JwtService</code> / <code>RefreshTokenService</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>ユーザー運用</h3>
+                        <p><code>AdminUserController</code> / <code>AdminUserService</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>DBモデル</h3>
+                        <p><code>AppUser</code> / <code>RefreshToken</code> / <code>AuthRateLimit</code></p>
+                    </article>
+                    <article class="file-card">
+                        <h3>テスト</h3>
+                        <p><code>TaskControllerTest</code> の JWT / admin / revoke 系テスト</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="commands" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Commands</p>
+                    <h2>確認に使うコマンド</h2>
+                    <p>W04の追加内容を自分で触る時に役立つコマンドです。</p>
+                </div>
+
+                <div class="command-grid">
+                    <article class="command-card">
+                        <h3>ログイン</h3>
+<pre><code>curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"appuser","password":"change-this-password-123"}'</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>Task API利用</h3>
+<pre><code>curl http://localhost:8080/tasks \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}"</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>refresh</h3>
+<pre><code>curl -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"..."}'</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>管理者でユーザー作成</h3>
+<pre><code>curl -X POST http://localhost:8080/admin/users \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"member-user","password":"member-password","role":"USER"}'</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>テスト実行</h3>
+<pre><code>./gradlew test</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>ビルド実行</h3>
+<pre><code>./gradlew build</code></pre>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
