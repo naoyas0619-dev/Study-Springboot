@@ -70,7 +70,7 @@ public class AuthService {
     public LoginResponse refresh(String rawRefreshToken, String ipAddress) {
         loginRateLimitService.checkAllowed("refresh:" + ipAddress);
         try {
-            AppUser user = refreshTokenService.consume(rawRefreshToken);
+            AppUser user = loadActiveUser(refreshTokenService.consume(rawRefreshToken).getId());
             LoginResponse response = issueTokenPair(user);
             loginRateLimitService.recordSuccess("refresh:" + ipAddress);
             auditLogService.refreshSucceeded(user.getUsername(), ipAddress);
@@ -85,7 +85,7 @@ public class AuthService {
     @Transactional
     public void logout(Authentication authentication, String ipAddress) {
         AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
-        AppUser user = loadUser(principal.getUsername());
+        AppUser user = loadActiveUser(principal.getUserId());
         user.setTokenVersion(user.getTokenVersion() + 1);
         refreshTokenService.revokeAllForUser(user);
         auditLogService.logoutSucceeded(user.getUsername(), ipAddress);
@@ -109,6 +109,15 @@ public class AuthService {
     private AppUser loadUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user no longer exists"));
+    }
+
+    private AppUser loadActiveUser(Long userId) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user no longer exists"));
+        if (!user.isEnabled()) {
+            throw new com.naopon.taskapi.exception.InvalidRefreshTokenException("Invalid or expired refresh token");
+        }
+        return user;
     }
 
     private String rateLimitKey(String username, String ipAddress) {

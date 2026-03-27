@@ -6,11 +6,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -66,19 +64,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 AppUserPrincipal userDetails = (AppUserPrincipal) userDetailsService.loadUserByUsername(username);
-                if (!jwtService.isAccessTokenValid(token, userDetails)) {
+                if (!userDetails.isEnabled() || !jwtService.isAccessTokenValid(token, userDetails)) {
                     unauthorized(request, response, null);
                     return;
                 }
 
-                List<SimpleGrantedAuthority> authorities = jwtService.extractAuthorities(token).stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
                                 null,
-                                authorities
+                                userDetails.getAuthorities()
                         );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

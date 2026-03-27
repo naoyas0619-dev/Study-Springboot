@@ -4,10 +4,11 @@ Spring Bootで作成したシンプルなタスク管理APIです。W04では `S
 
 - stateless な access token 認証
 - DB管理のユーザー
+- ADMIN向けユーザー管理API
 - role ベースの認可
 - refresh token ローテーション
 - logout による token revoke
-- 認証APIの rate limit
+- DB永続化された認証API rate limit
 - 監査ログ
 
 ## 技術スタック
@@ -26,6 +27,9 @@ Spring Bootで作成したシンプルなタスク管理APIです。W04では `S
 - ログインAPIによる access token / refresh token 発行
 - refresh token による再発行
 - logout による access token / refresh token 無効化
+- 管理者によるユーザー一覧取得
+- 管理者によるユーザー作成
+- 管理者によるユーザー無効化 / ロール変更 / パスワード更新
 - タスク作成
 - タスク一覧取得
 - タスク詳細取得
@@ -108,8 +112,9 @@ export AUTH_RATE_LIMIT_BLOCK_DURATION=PT15M
 - `POST /auth/refresh` で refresh token を1回だけ使って新しい token pair を再発行します
 - `POST /auth/logout` で access token を即時失効し、保存済み refresh token を削除します
 - `/tasks/**` は `ROLE_USER` 以上が必要です
+- `/admin/users/**` は `ROLE_ADMIN` のみ利用できます
 - `ADMIN` ロールは `USER` 権限も持ちます
-- 認証APIには rate limit を入れています
+- 認証APIの rate limit は DB に保存されるため、アプリ再起動後や複数インスタンスでも維持されます
 - 監査ログとして login success / failure、refresh、logout、invalid token を出力します
 
 ## 公開URL / 認証必須URL
@@ -132,6 +137,10 @@ export AUTH_RATE_LIMIT_BLOCK_DURATION=PT15M
 ### 認証必須URL
 
 - `POST /auth/logout`
+- `GET /admin/users`
+- `GET /admin/users/{id}`
+- `POST /admin/users`
+- `PATCH /admin/users/{id}`
 - `POST /tasks`
 - `GET /tasks`
 - `GET /tasks/{id}`
@@ -180,6 +189,8 @@ curl http://localhost:8080/tasks
 ```
 
 ### 3. JWTありで保護APIにアクセスすると成功
+
+以下の例では `jq` を使ってレスポンスJSONから token を取り出しています。
 
 ```bash
 ACCESS_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
@@ -242,6 +253,37 @@ curl -X POST http://localhost:8080/auth/refresh \
 ```bash
 curl -X POST http://localhost:8080/auth/logout \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
+```
+
+### 管理者向けユーザー一覧
+
+`GET /admin/users`
+
+```bash
+curl http://localhost:8080/admin/users \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}"
+```
+
+### 管理者向けユーザー作成
+
+`POST /admin/users`
+
+```bash
+curl -X POST http://localhost:8080/admin/users \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"member-user","password":"member-password","role":"USER"}'
+```
+
+### 管理者向けユーザー更新
+
+`PATCH /admin/users/{id}`
+
+```bash
+curl -X PATCH http://localhost:8080/admin/users/2 \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled":false}'
 ```
 
 ### タスクAPI共通
@@ -331,7 +373,8 @@ curl -X DELETE http://localhost:8080/tasks/1 \
 - logout で token version を進め、発行済み access token を無効化します
 - refresh token は DB 保存時にハッシュ化し、再利用不可のローテーション方式です
 - JWT secret は環境変数から受け取り、アプリ内デフォルトを持ちません
-- 認証APIには rate limit を入れ、ブルートフォース耐性を上げています
+- 認証APIの rate limit を DB に保持し、再起動や多重起動でもブルートフォース耐性を維持します
+- ADMIN 向けユーザー管理APIにより bootstrap user 1件だけに依存しません
 - 認証イベントは監査ログとして出力されます
 
 ## DB構成
@@ -369,6 +412,17 @@ curl -X DELETE http://localhost:8080/tasks/1 \
 | revoked_at | timestamp |
 | created_at | timestamp |
 
+`auth_rate_limits` テーブル
+
+| column | type |
+| --- | --- |
+| id | bigint |
+| bucket_key | varchar |
+| failure_count | integer |
+| window_started_at | timestamp |
+| blocked_until | timestamp |
+| updated_at | timestamp |
+
 ## 学習ポイント
 
 - REST API設計
@@ -381,6 +435,8 @@ curl -X DELETE http://localhost:8080/tasks/1 \
 - Spring Securityによる stateless 認証
 - JWTの発行と検証
 - refresh token ローテーション
+- DB永続化された rate limit
 - role ベース認可
+- 管理者向けユーザー運用API
 - rate limit と監査ログ
 - DockerによるDB環境構築

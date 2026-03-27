@@ -2,74 +2,87 @@ package com.naopon.taskapi.security;
 
 import com.naopon.taskapi.config.AppSecurityProperties;
 import com.naopon.taskapi.exception.TooManyRequestsException;
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.naopon.taskapi.model.AuthRateLimit;
+import com.naopon.taskapi.repository.AuthRateLimitRepository;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-// Applies a simple in-memory rate limit to auth endpoints to slow brute-force attacks.
+// Persists authentication rate-limit state in the database.
 @Service
 public class LoginRateLimitService {
 
     private final AppSecurityProperties properties;
-    private final Map<String, AttemptWindow> attempts = new ConcurrentHashMap<>();
+    private final AuthRateLimitRepository authRateLimitRepository;
 
-    public LoginRateLimitService(AppSecurityProperties properties) {
+    public LoginRateLimitService(
+            AppSecurityProperties properties,
+            AuthRateLimitRepository authRateLimitRepository
+    ) {
         this.properties = properties;
+        this.authRateLimitRepository = authRateLimitRepository;
     }
 
+    @Transactional
     public void checkAllowed(String key) {
-        Instant now = Instant.now();
-        AttemptWindow state = attempts.computeIfAbsent(key, unused -> new AttemptWindow());
+        LocalDateTime now = LocalDateTime.now();
+        AuthRateLimit state = loadState(key);
 
-        synchronized (state) {
-            if (state.blockedUntil != null && now.isBefore(state.blockedUntil)) {
-                throw new TooManyRequestsException("Too many authentication attempts. Try again later.");
-            }
-
-            if (state.windowStartedAt == null || now.isAfter(state.windowStartedAt.plus(properties.getRateLimit().getWindow()))) {
-                state.windowStartedAt = now;
-                state.failureCount = 0;
-                state.blockedUntil = null;
-            }
+        if (state.getBlockedUntil() != null && now.isBefore(state.getBlockedUntil())) {
+            throw new TooManyRequestsException("Too many authentication attempts. Try again later.");
         }
+
+        if (state.getWindowStartedAt() == null
+                || now.isAfter(state.getWindowStartedAt().plus(properties.getRateLimit().getWindow()))) {
+            state.setWindowStartedAt(now);
+            state.setFailureCount(0);
+            state.setBlockedUntil(null);
+        }
+
+        authRateLimitRepository.save(state);
     }
 
+    @Transactional
     public void recordFailure(String key) {
-        Instant now = Instant.now();
-        AttemptWindow state = attempts.computeIfAbsent(key, unused -> new AttemptWindow());
+        LocalDateTime now = LocalDateTime.now();
+        AuthRateLimit state = loadState(key);
 
-        synchronized (state) {
-            if (state.windowStartedAt == null || now.isAfter(state.windowStartedAt.plus(properties.getRateLimit().getWindow()))) {
-                state.windowStartedAt = now;
-                state.failureCount = 0;
-            }
-
-            state.failureCount++;
-            if (state.failureCount >= properties.getRateLimit().getMaxAttempts()) {
-                state.blockedUntil = now.plus(properties.getRateLimit().getBlockDuration());
-            }
+        if (state.getWindowStartedAt() == null
+                || now.isAfter(state.getWindowStartedAt().plus(properties.getRateLimit().getWindow()))) {
+            state.setWindowStartedAt(now);
+            state.setFailureCount(0);
+            state.setBlockedUntil(null);
         }
+
+        state.setFailureCount(state.getFailureCount() + 1);
+        if (state.getFailureCount() >= properties.getRateLimit().getMaxAttempts()) {
+            state.setBlockedUntil(now.plus(properties.getRateLimit().getBlockDuration()));
+        }
+
+        authRateLimitRepository.save(state);
     }
 
+    @Transactional
     public void recordSuccess(String key) {
-        attempts.remove(key);
+        authRateLimitRepository.findByBucketKey(key)
+                .ifPresent(authRateLimitRepository::delete);
     }
 
+    @Transactional(readOnly = true)
     public boolean isBlocked(String key) {
-        AttemptWindow state = attempts.get(key);
-        return state != null
-                && state.blockedUntil != null
-                && Instant.now().isBefore(state.blockedUntil);
+        return authRateLimitRepository.findByBucketKey(key)
+                .map(state -> state.getBlockedUntil() != null
+                        && LocalDateTime.now().isBefore(state.getBlockedUntil()))
+                .orElse(false);
     }
 
+    @Transactional
     public void clearAll() {
-        attempts.clear();
+        authRateLimitRepository.deleteAll();
     }
 
-    private static class AttemptWindow {
-        private int failureCount;
-        private Instant windowStartedAt;
-        private Instant blockedUntil;
+    private AuthRateLimit loadState(String key) {
+        return authRateLimitRepository.findByBucketKey(key)
+                .orElseGet(() -> authRateLimitRepository.save(new AuthRateLimit(key)));
     }
 }

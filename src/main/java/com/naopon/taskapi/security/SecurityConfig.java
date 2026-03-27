@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/study-guide", "/project-setup-guide", "/w03-exception-test-guide").permitAll()
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                        .requestMatchers("/admin/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/auth/logout").hasRole("USER")
                         .requestMatchers("/tasks/**").hasRole("USER")
                         .anyRequest().authenticated()

@@ -3,8 +3,14 @@ package com.naopon.taskapi;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.naopon.taskapi.auth.LoginRequest;
 import com.naopon.taskapi.auth.RefreshTokenRequest;
+import com.naopon.taskapi.dto.AdminUserCreateRequest;
+import com.naopon.taskapi.dto.AdminUserUpdateRequest;
 import com.naopon.taskapi.dto.TaskRequest;
+import com.naopon.taskapi.model.AppRole;
+import com.naopon.taskapi.model.AppUser;
 import com.naopon.taskapi.model.Task;
+import com.naopon.taskapi.repository.AppUserRepository;
+import com.naopon.taskapi.repository.RefreshTokenRepository;
 import com.naopon.taskapi.repository.TaskRepository;
 import com.naopon.taskapi.security.LoginRateLimitService;
 import org.junit.jupiter.api.Assertions;
@@ -19,6 +25,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,12 +48,28 @@ class TaskControllerTest {
     private TaskRepository repository;
 
     @Autowired
+    private AppUserRepository appUserRepository;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
     private LoginRateLimitService loginRateLimitService;
 
     @BeforeEach
     void setUp() {
         repository.deleteAll();
+        refreshTokenRepository.deleteAll();
         loginRateLimitService.clearAll();
+        appUserRepository.findAll().stream()
+                .filter(user -> !TEST_USERNAME.equals(user.getUsername()))
+                .forEach(appUserRepository::delete);
+        AppUser user = appUserRepository.findByUsername(TEST_USERNAME)
+                .orElseThrow();
+        user.setEnabled(true);
+        user.setRole(AppRole.ADMIN);
+        user.setTokenVersion(0);
+        appUserRepository.save(user);
     }
 
     @Test
@@ -171,6 +194,100 @@ class TaskControllerTest {
         mockMvc.perform(post("/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(refreshRequestBody(refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired refresh token"));
+    }
+
+    @Test
+    void disabledUserCannotUseExistingAccessToken() throws Exception {
+        String accessToken = bearerToken();
+        disableTestUser();
+
+        mockMvc.perform(get("/tasks")
+                        .header("Authorization", accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired token"));
+    }
+
+    @Test
+    void disabledUserCannotRefreshToken() throws Exception {
+        String refreshToken = refreshToken();
+        disableTestUser();
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshRequestBody(refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired refresh token"));
+    }
+
+    @Test
+    void adminCanCreateUserAndUserCanLogin() throws Exception {
+        mockMvc.perform(post("/admin/users")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminUserCreateRequestBody("member-user", "member-password", AppRole.USER)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username").value("member-user"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.enabled").value(true));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequestBody("member-user", "member-password")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void duplicateUsernameReturnsConflict() throws Exception {
+        mockMvc.perform(post("/admin/users")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminUserCreateRequestBody(TEST_USERNAME, "another-password", AppRole.USER)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value("username already exists"))
+                .andExpect(jsonPath("$.path").value("/admin/users"));
+    }
+
+    @Test
+    void nonAdminCannotAccessAdminUserManagementApi() throws Exception {
+        createUserAsAdmin("member-user", "member-password", AppRole.USER);
+        String userToken = bearerToken("member-user", "member-password");
+
+        mockMvc.perform(get("/admin/users")
+                        .header("Authorization", userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.message").value("Access denied"))
+                .andExpect(jsonPath("$.path").value("/admin/users"));
+    }
+
+    @Test
+    void adminCanDisableUserAndRevokeTokens() throws Exception {
+        createUserAsAdmin("member-user", "member-password", AppRole.USER);
+        String userAccessToken = bearerToken("member-user", "member-password");
+        String userRefreshToken = refreshToken("member-user", "member-password");
+        Long userId = appUserRepository.findByUsername("member-user").orElseThrow().getId();
+
+        mockMvc.perform(patch("/admin/users/{id}", userId)
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminUserUpdateRequestBody(null, false, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        mockMvc.perform(get("/tasks")
+                        .header("Authorization", userAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired token"));
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshRequestBody(userRefreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid or expired refresh token"));
     }
@@ -388,6 +505,10 @@ class TaskControllerTest {
         return "Bearer " + loginResponseBody().get("accessToken").asText();
     }
 
+    private String bearerToken(String username, String password) throws Exception {
+        return "Bearer " + loginResponseBody(username, password).get("accessToken").asText();
+    }
+
     private String loginRequestBody(String username, String password) throws Exception {
         LoginRequest request = new LoginRequest();
         request.setUsername(username);
@@ -397,6 +518,10 @@ class TaskControllerTest {
 
     private String refreshToken() throws Exception {
         return loginResponseBody().get("refreshToken").asText();
+    }
+
+    private String refreshToken(String username, String password) throws Exception {
+        return loginResponseBody(username, password).get("refreshToken").asText();
     }
 
     private String refreshTokenFromLogin() throws Exception {
@@ -410,14 +535,49 @@ class TaskControllerTest {
     }
 
     private com.fasterxml.jackson.databind.JsonNode loginResponseBody() throws Exception {
+        return loginResponseBody(TEST_USERNAME, TEST_PASSWORD);
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode loginResponseBody(String username, String password) throws Exception {
         String responseBody = mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginRequestBody(TEST_USERNAME, TEST_PASSWORD)))
+                        .content(loginRequestBody(username, password)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
         return objectMapper.readTree(responseBody);
+    }
+
+    private String adminUserCreateRequestBody(String username, String password, AppRole role) throws Exception {
+        AdminUserCreateRequest request = new AdminUserCreateRequest();
+        request.setUsername(username);
+        request.setPassword(password);
+        request.setRole(role);
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String adminUserUpdateRequestBody(AppRole role, Boolean enabled, String password) throws Exception {
+        AdminUserUpdateRequest request = new AdminUserUpdateRequest();
+        request.setRole(role);
+        request.setEnabled(enabled);
+        request.setPassword(password);
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private void disableTestUser() {
+        AppUser user = appUserRepository.findByUsername(TEST_USERNAME)
+                .orElseThrow();
+        user.setEnabled(false);
+        appUserRepository.save(user);
+    }
+
+    private void createUserAsAdmin(String username, String password, AppRole role) throws Exception {
+        mockMvc.perform(post("/admin/users")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(adminUserCreateRequestBody(username, password, role)))
+                .andExpect(status().isCreated());
     }
 }
