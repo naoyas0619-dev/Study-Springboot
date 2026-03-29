@@ -47,8 +47,17 @@ Spring Bootで作成したシンプルなタスク管理APIです。W04では `S
 cp .env.example .env
 ```
 
-主な認証用の設定値:
+`.env` は Docker Compose とローカル `bootRun` の両方で使えます。ローカル実行時は `DB_HOST=localhost` を使い、Docker Compose では API コンテナ側だけ `DB_HOST=db` に上書きします。
 
+主な設定値:
+
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_PORT`
+- `DB_HOST`
+- `DB_PORT`
+- `API_PORT`
 - `APP_SECURITY_USERNAME`
 - `APP_SECURITY_PASSWORD`
 - `APP_SECURITY_ROLE`
@@ -67,15 +76,35 @@ cp .env.example .env
 docker compose up --build
 ```
 
-APIは `http://localhost:8080` で利用できます。
+APIは `http://localhost:${API_PORT:-8080}` で利用できます。
 
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Health Check: `http://localhost:8080/actuator/health`
-- 学習用ページ: `http://localhost:8080/study-guide`
-- W03学習用ページ: `http://localhost:8080/w03-exception-test-guide`
-- W04学習用ページ: `http://localhost:8080/w04-jwt-auth-guide`
-- 環境・構築ガイド: `http://localhost:8080/project-setup-guide`
+初回ビルドや設定変更後の確認:
+
+```bash
+docker compose config
+docker compose up --build
+```
+
+停止や後片付け:
+
+```bash
+docker compose down
+```
+
+DBの初期化変数を変更してクリーンにやり直したい場合:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+- Swagger UI: `http://localhost:${API_PORT:-8080}/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:${API_PORT:-8080}/v3/api-docs`
+- Health Check: `http://localhost:${API_PORT:-8080}/actuator/health`
+- 学習用ページ: `http://localhost:${API_PORT:-8080}/study-guide`
+- W03学習用ページ: `http://localhost:${API_PORT:-8080}/w03-exception-test-guide`
+- W04学習用ページ: `http://localhost:${API_PORT:-8080}/w04-jwt-auth-guide`
+- 環境・構築ガイド: `http://localhost:${API_PORT:-8080}/project-setup-guide`
 
 学習用ページや静的HTMLを変更したのに画面へ反映されない場合:
 
@@ -85,23 +114,16 @@ APIは `http://localhost:8080` で利用できます。
 
 ### Spring Bootだけ起動する場合
 
-PostgreSQLを先に起動し、環境変数を設定してから起動します。
+PostgreSQLを先に起動し、`.env` を読み込んでから起動します。`DB_HOST` の初期値は `localhost` なので、そのままローカルDBへ接続できます。
 
 ```bash
-export DB_URL=jdbc:postgresql://localhost:5432/taskdb
-export DB_USERNAME=app
-export DB_PASSWORD=your-password
-export APP_SECURITY_USERNAME=appuser
-export APP_SECURITY_PASSWORD=change-this-password-123
-export APP_SECURITY_ROLE=ADMIN
-export JWT_SECRET=replace-with-a-32-byte-or-longer-secret-key
-export JWT_ACCESS_EXPIRATION=PT15M
-export JWT_REFRESH_EXPIRATION=P7D
-export AUTH_RATE_LIMIT_MAX_ATTEMPTS=5
-export AUTH_RATE_LIMIT_WINDOW=PT15M
-export AUTH_RATE_LIMIT_BLOCK_DURATION=PT15M
+set -a
+source .env
+set +a
 ./gradlew bootRun
 ```
+
+すでに `DB_URL` を使うローカル手順がある場合も、そのまま上書きして利用できます。
 
 初回起動時には、`APP_SECURITY_USERNAME` / `APP_SECURITY_PASSWORD` / `APP_SECURITY_ROLE` をもとに bootstrap user をDBへ作成します。
 

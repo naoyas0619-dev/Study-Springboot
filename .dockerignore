@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.*
+.gradle
+.gradle-local
+.idea
+.vscode
+build
+out
+HELP.md
+AGENTS.md

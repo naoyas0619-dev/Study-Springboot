@@ -1,14 +1,28 @@
-# Base image with Java 17 to build and run the Spring Boot app.
-FROM eclipse-temurin:17-jdk-jammy
+# Build the Spring Boot jar in a dedicated layer.
+FROM eclipse-temurin:17-jdk-jammy AS builder
 
-# Work inside /app in the container.
+WORKDIR /workspace
+
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+COPY src src
+
+RUN chmod +x gradlew
+RUN ./gradlew bootJar --no-daemon
+
+# Run the app on a lighter JRE image.
+FROM eclipse-temurin:17-jre-jammy AS runtime
+
 WORKDIR /app
 
-# Copy the entire project so Gradle can build it.
-COPY . .
+# curl is used by the container health check.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Build the jar file. Tests are skipped here to keep image build simple.
-RUN ./gradlew build -x test
+COPY --from=builder /workspace/build/libs/*.jar app.jar
 
-# Start the application from the built jar.
-CMD ["java", "-jar", "build/libs/task-api-0.0.1-SNAPSHOT.jar"]
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

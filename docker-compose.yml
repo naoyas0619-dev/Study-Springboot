@@ -2,29 +2,37 @@ services:
   db:
     # PostgreSQL container used by the Spring Boot application.
     image: postgres:16
-    container_name: task-db
     environment:
       # Values come from .env. The defaults are only for local learning use.
       POSTGRES_DB: ${POSTGRES_DB:-taskdb}
       POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Keep database data even if the container is recreated.
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   app:
     # Build and run this project as the API container.
-    build: .
-    container_name: task-api
+    build:
+      context: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
     environment:
-      # The API connects to the database container by service name "db".
-      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-taskdb}
+      # Compose overrides DB host to the database service name.
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-taskdb}
       DB_USERNAME: ${POSTGRES_USER:-app}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
       APP_SECURITY_USERNAME: ${APP_SECURITY_USERNAME:-appuser}
@@ -36,6 +44,12 @@ services:
       AUTH_RATE_LIMIT_MAX_ATTEMPTS: ${AUTH_RATE_LIMIT_MAX_ATTEMPTS:-5}
       AUTH_RATE_LIMIT_WINDOW: ${AUTH_RATE_LIMIT_WINDOW:-PT15M}
       AUTH_RATE_LIMIT_BLOCK_DURATION: ${AUTH_RATE_LIMIT_BLOCK_DURATION:-PT15M}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   # Named volume for PostgreSQL persistent storage.
