@@ -49,6 +49,8 @@ cp .env.example .env
 
 `.env` は Docker Compose とローカル `bootRun` の両方で使えます。ローカル実行時は `DB_HOST=localhost` を使い、Docker Compose では API コンテナ側だけ `DB_HOST=db` に上書きします。
 
+`docker compose` は `POSTGRES_PASSWORD`、`APP_SECURITY_PASSWORD`、`JWT_SECRET` が未設定のままだと fail-fast で止まるようにしています。
+
 主な設定値:
 
 - `POSTGRES_DB`
@@ -114,12 +116,9 @@ docker compose up --build
 
 ### Spring Bootだけ起動する場合
 
-PostgreSQLを先に起動し、`.env` を読み込んでから起動します。`DB_HOST` の初期値は `localhost` なので、そのままローカルDBへ接続できます。
+PostgreSQLを先に起動してから `./gradlew bootRun` を実行します。Spring Boot が `.env` を自動で読み込むため、追加の `source .env` は不要です。`DB_HOST` の初期値は `localhost` なので、そのままローカルDBへ接続できます。
 
 ```bash
-set -a
-source .env
-set +a
 ./gradlew bootRun
 ```
 
@@ -179,12 +178,20 @@ set +a
 
 ## JWT発行〜利用手順
 
+以下の `curl` 例は `API_PORT=8080` を前提にしています。ポートや初期ユーザー名・パスワードを変更した場合は、自分の `.env` の値に読み替えてください。
+
+```bash
+API_BASE_URL=${API_BASE_URL:-http://localhost:8080}
+APP_USERNAME="<your-app-username>"
+APP_PASSWORD="<your-app-password>"
+```
+
 ### 1. ログインして token pair を取得
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST "$API_BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"appuser","password":"change-this-password-123"}'
+  -d "{\"username\":\"$APP_USERNAME\",\"password\":\"$APP_PASSWORD\"}"
 ```
 
 レスポンス例:
@@ -203,7 +210,7 @@ curl -X POST http://localhost:8080/auth/login \
 ### 2. JWTなしで保護APIにアクセスすると401
 
 ```bash
-curl http://localhost:8080/tasks
+curl "$API_BASE_URL/tasks"
 ```
 
 レスポンス例:
@@ -223,22 +230,22 @@ curl http://localhost:8080/tasks
 以下の例では `jq` を使ってレスポンスJSONから token を取り出しています。
 
 ```bash
-ACCESS_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+ACCESS_TOKEN=$(curl -s -X POST "$API_BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"appuser","password":"change-this-password-123"}' | jq -r '.accessToken')
+  -d "{\"username\":\"$APP_USERNAME\",\"password\":\"$APP_PASSWORD\"}" | jq -r '.accessToken')
 
-curl http://localhost:8080/tasks \
+curl "$API_BASE_URL/tasks" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
 ### 4. refresh token で再発行
 
 ```bash
-REFRESH_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+REFRESH_TOKEN=$(curl -s -X POST "$API_BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"appuser","password":"change-this-password-123"}' | jq -r '.refreshToken')
+  -d "{\"username\":\"$APP_USERNAME\",\"password\":\"$APP_PASSWORD\"}" | jq -r '.refreshToken')
 
-curl -X POST http://localhost:8080/auth/refresh \
+curl -X POST "$API_BASE_URL/auth/refresh" \
   -H "Content-Type: application/json" \
   -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}"
 ```
@@ -248,7 +255,7 @@ refresh token はローテーションされるため、使い終わった古い
 ### 5. logout で revoke
 
 ```bash
-curl -X POST http://localhost:8080/auth/logout \
+curl -X POST "$API_BASE_URL/auth/logout" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -261,9 +268,9 @@ logout 後は、同じ access token でも `/tasks` にアクセスできず、�
 `POST /auth/login`
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST "$API_BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"appuser","password":"change-this-password-123"}'
+  -d "{\"username\":\"$APP_USERNAME\",\"password\":\"$APP_PASSWORD\"}"
 ```
 
 ### refresh
@@ -271,7 +278,7 @@ curl -X POST http://localhost:8080/auth/login \
 `POST /auth/refresh`
 
 ```bash
-curl -X POST http://localhost:8080/auth/refresh \
+curl -X POST "$API_BASE_URL/auth/refresh" \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"your-refresh-token"}'
 ```
@@ -281,7 +288,7 @@ curl -X POST http://localhost:8080/auth/refresh \
 `POST /auth/logout`
 
 ```bash
-curl -X POST http://localhost:8080/auth/logout \
+curl -X POST "$API_BASE_URL/auth/logout" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -290,7 +297,7 @@ curl -X POST http://localhost:8080/auth/logout \
 `GET /admin/users`
 
 ```bash
-curl http://localhost:8080/admin/users \
+curl "$API_BASE_URL/admin/users" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -299,7 +306,7 @@ curl http://localhost:8080/admin/users \
 `POST /admin/users`
 
 ```bash
-curl -X POST http://localhost:8080/admin/users \
+curl -X POST "$API_BASE_URL/admin/users" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"username":"member-user","password":"member-password","role":"USER"}'
@@ -310,7 +317,7 @@ curl -X POST http://localhost:8080/admin/users \
 `PATCH /admin/users/{id}`
 
 ```bash
-curl -X PATCH http://localhost:8080/admin/users/2 \
+curl -X PATCH "$API_BASE_URL/admin/users/2" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"enabled":false}'
@@ -325,7 +332,7 @@ curl -X PATCH http://localhost:8080/admin/users/2 \
 `POST /tasks`
 
 ```bash
-curl -X POST http://localhost:8080/tasks \
+curl -X POST "$API_BASE_URL/tasks" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"title":"task"}'
@@ -336,7 +343,7 @@ curl -X POST http://localhost:8080/tasks \
 `GET /tasks`
 
 ```bash
-curl http://localhost:8080/tasks \
+curl "$API_BASE_URL/tasks" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -345,7 +352,7 @@ curl http://localhost:8080/tasks \
 `GET /tasks/{id}`
 
 ```bash
-curl http://localhost:8080/tasks/1 \
+curl "$API_BASE_URL/tasks/1" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -354,7 +361,7 @@ curl http://localhost:8080/tasks/1 \
 `PUT /tasks/{id}`
 
 ```bash
-curl -X PUT http://localhost:8080/tasks/1 \
+curl -X PUT "$API_BASE_URL/tasks/1" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"title":"updated"}'
@@ -365,7 +372,7 @@ curl -X PUT http://localhost:8080/tasks/1 \
 `DELETE /tasks/{id}`
 
 ```bash
-curl -X DELETE http://localhost:8080/tasks/1 \
+curl -X DELETE "$API_BASE_URL/tasks/1" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 

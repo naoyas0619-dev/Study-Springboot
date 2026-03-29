@@ -6,7 +6,7 @@ services:
       # Values come from .env. The defaults are only for local learning use.
       POSTGRES_DB: ${POSTGRES_DB:-taskdb}
       POSTGRES_USER: ${POSTGRES_USER:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -34,11 +34,11 @@ services:
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-taskdb}
       DB_USERNAME: ${POSTGRES_USER:-app}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       APP_SECURITY_USERNAME: ${APP_SECURITY_USERNAME:-appuser}
-      APP_SECURITY_PASSWORD: ${APP_SECURITY_PASSWORD:-change-this-password-123}
+      APP_SECURITY_PASSWORD: ${APP_SECURITY_PASSWORD:?Set APP_SECURITY_PASSWORD in .env}
       APP_SECURITY_ROLE: ${APP_SECURITY_ROLE:-ADMIN}
-      JWT_SECRET: ${JWT_SECRET:-replace-with-a-32-byte-or-longer-secret-key}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-PT15M}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-P7D}
       AUTH_RATE_LIMIT_MAX_ATTEMPTS: ${AUTH_RATE_LIMIT_MAX_ATTEMPTS:-5}
