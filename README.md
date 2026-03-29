@@ -106,6 +106,7 @@ docker compose up --build
 - 学習用ページ: `http://localhost:${API_PORT:-8080}/study-guide`
 - W03学習用ページ: `http://localhost:${API_PORT:-8080}/w03-exception-test-guide`
 - W04学習用ページ: `http://localhost:${API_PORT:-8080}/w04-jwt-auth-guide`
+- W05学習用ページ: `http://localhost:${API_PORT:-8080}/w05-docker-compose-guide`
 - 環境・構築ガイド: `http://localhost:${API_PORT:-8080}/project-setup-guide`
 
 学習用ページや静的HTMLを変更したのに画面へ反映されない場合:
@@ -161,6 +162,7 @@ PostgreSQLを先に起動してから `./gradlew bootRun` を実行します。S
 - `GET /project-setup-guide`
 - `GET /w03-exception-test-guide`
 - `GET /w04-jwt-auth-guide`
+- `GET /w05-docker-compose-guide`
 - 静的リソース配信 (`/*.html`, `/*.css`, `/*.js`, `/webjars/**` など)
 
 ### 認証必須URL

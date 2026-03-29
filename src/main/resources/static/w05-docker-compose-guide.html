@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W05「Dockerfile + docker compose整備」</title>
+    <link rel="stylesheet" href="/w05-docker-compose-guide.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <p class="eyebrow">Milestone Learning Page</p>
+            <h1>W05「Dockerfile + docker compose整備」</h1>
+            <p class="hero-copy">
+                このページは、このチャットで追加した Dockerfile 改善、docker compose の healthcheck / depends_on 整備、
+                `.env` と Spring Boot 設定のつなぎ込み、README の更新を、学習用に整理したページです。
+            </p>
+            <div class="hero-links">
+                <a href="#overview">今回やったこと</a>
+                <a href="#container-map">コンテナ構成</a>
+                <a href="#config-flow">設定の流れ</a>
+                <a href="#dockerfile">Dockerfile改善点</a>
+                <a href="#compose">compose改善点</a>
+                <a href="#run-modes">ローカルとDockerの両立</a>
+                <a href="#checks">確認コマンド</a>
+                <a href="#files">変更ファイル</a>
+                <a href="/study-guide">既存の学習ページへ戻る</a>
+            </div>
+        </header>
+
+        <main class="content">
+            <section id="overview" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Overview</p>
+                    <h2>今回のW05で整えたこと</h2>
+                    <p>
+                        目標は「初見の人でも `docker compose up --build` で API と PostgreSQL を再現できる状態」にすることでした。
+                        そのために、イメージの作り方、コンテナ起動順、環境変数の流れ、README の説明をまとめて整えています。
+                    </p>
+                </div>
+
+                <div class="summary-grid">
+                    <article class="summary-card">
+                        <span class="card-tag">Build</span>
+                        <h3>multi-stage Dockerfile</h3>
+                        <p>build 用 JDK と runtime 用 JRE を分けて、実行イメージを分かりやすくしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Startup</span>
+                        <h3>DB起動待ち</h3>
+                        <p><code>db</code> の healthcheck を通ってから <code>app</code> が起動するようにしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Config</span>
+                        <h3>.env の共通化</h3>
+                        <p>Docker Compose とローカル <code>bootRun</code> の両方で同じ設定ファイルを使えるようにしました。</p>
+                    </article>
+                    <article class="summary-card">
+                        <span class="card-tag">Docs</span>
+                        <h3>README更新</h3>
+                        <p>起動手順、fail-fast、ポート変更、DB初期化まで README に追記しました。</p>
+                    </article>
+                </div>
+
+                <div class="checkpoint-row">
+                    <div class="checkpoint">
+                        <strong>Before</strong>
+                        <p>Compose で app と db は並ぶものの、DB準備完了待ちや設定説明にムラがありました。</p>
+                    </div>
+                    <div class="checkpoint-arrow">→</div>
+                    <div class="checkpoint">
+                        <strong>After</strong>
+                        <p>起動順、health、設定の渡し方、README、学習ページまで含めて再現しやすい状態になりました。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="container-map" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Container Map</p>
+                    <h2>コンテナ構成を図で見る</h2>
+                    <p>
+                        今回の compose は、学習用としてはシンプルですが、依存関係とヘルスチェックは入れています。
+                    </p>
+                </div>
+
+                <div class="compose-diagram">
+                    <div class="compose-stage host-box">
+                        <span class="compose-label">Host</span>
+                        <h3>あなたのPC</h3>
+                        <p><code>docker compose up --build</code> を実行する場所</p>
+                    </div>
+                    <div class="compose-arrow">↓</div>
+                    <div class="compose-stage engine-box">
+                        <span class="compose-label">Docker Engine</span>
+                        <h3>コンテナ実行基盤</h3>
+                        <p>image build と container 起動を担当</p>
+                    </div>
+                    <div class="compose-arrow">↓</div>
+                    <div class="services-row">
+                        <article class="service-card app-card">
+                            <span class="compose-label">app service</span>
+                            <h3>Spring Boot API</h3>
+                            <ul>
+                                <li>ポート: <code>${API_PORT:-8080}:8080</code></li>
+                                <li>healthcheck: <code>/actuator/health</code></li>
+                                <li>DB接続先: <code>db:5432</code></li>
+                            </ul>
+                        </article>
+                        <div class="service-link">depends_on + health</div>
+                        <article class="service-card db-card">
+                            <span class="compose-label">db service</span>
+                            <h3>PostgreSQL 16</h3>
+                            <ul>
+                                <li>ポート: <code>${POSTGRES_PORT:-5432}:5432</code></li>
+                                <li>healthcheck: <code>pg_isready</code></li>
+                                <li>volume: <code>db-data</code></li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="split-grid">
+                    <article class="compare-card">
+                        <p class="mini-label">Why app waits</p>
+                        <p>DBコンテナが「起動しただけ」ではなく、「接続受付可能」になるまで待つためです。</p>
+                    </article>
+                    <article class="compare-card">
+                        <p class="mini-label">Why volume remains</p>
+                        <p>コンテナを消してもデータを残し、ポートフォリオ確認時に毎回初期化しないためです。</p>
+                    </article>
+                    <article class="compare-card">
+                        <p class="mini-label">Why names are not fixed</p>
+                        <p><code>container_name</code> を外し、同名競合が起きにくい compose 標準の命名に寄せました。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="config-flow" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Config Flow</p>
+                    <h2>環境変数がどこからどこへ渡るか</h2>
+                    <p>
+                        今回のW05では、設定の流れを明確にしたことがかなり重要です。
+                        「どの値をどこで使うか」が見えると、Docker とローカル実行の切り替えも理解しやすくなります。
+                    </p>
+                </div>
+
+                <div class="flow-rail">
+                    <div class="flow-step">
+                        <span class="step-no">1</span>
+                        <h3>.env を用意</h3>
+                        <p><code>.env.example</code> をコピーして、password や JWT secret を自分の値に変更します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <span class="step-no">2</span>
+                        <h3>Compose が読む</h3>
+                        <p><code>docker-compose.yml</code> が secrets と port を受け取って <code>app</code> / <code>db</code> に渡します。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <span class="step-no">3</span>
+                        <h3>Spring が解決</h3>
+                        <p><code>application.properties</code> が <code>DB_HOST</code> や <code>DB_PORT</code> を使って datasource URL を組み立てます。</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <span class="step-no">4</span>
+                        <h3>ローカルでも再利用</h3>
+                        <p><code>spring.config.import</code> により、<code>./gradlew bootRun</code> でも同じ <code>.env</code> を読めます。</p>
+                    </div>
+                </div>
+
+                <div class="code-pair">
+                    <div class="code-card">
+<pre><code>.env
+POSTGRES_PASSWORD=your-db-password
+APP_SECURITY_PASSWORD=your-admin-password
+JWT_SECRET=your-32-byte-or-longer-secret
+</code></pre>
+                    </div>
+                    <div class="code-card">
+<pre><code>spring.datasource.url=
+${DB_URL:jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}}
+
+spring.config.import=
+optional:file:.env[.properties]</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <section id="dockerfile" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Dockerfile</p>
+                    <h2>Dockerfile で改善したポイント</h2>
+                    <p>
+                        以前は 1 つの JDK イメージで build と run をまとめていましたが、
+                        今回は役割を分けて読みやすくしました。
+                    </p>
+                </div>
+
+                <div class="matrix-grid">
+                    <article class="matrix-card">
+                        <h3>builder stage</h3>
+                        <p><code>gradlew</code> と <code>src</code> をコピーし、<code>bootJar</code> を実行して jar を作ります。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>runtime stage</h3>
+                        <p>軽い JRE イメージに jar だけを持ち込み、実行専用コンテナとして使います。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>curl 追加</h3>
+                        <p><code>app</code> コンテナ自身の healthcheck に使うために <code>curl</code> を入れました。</p>
+                    </article>
+                    <article class="matrix-card">
+                        <h3>.dockerignore</h3>
+                        <p><code>.env</code>、<code>build/</code>、<code>.git</code> などを除外し、context を軽くしています。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="compose" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Compose</p>
+                    <h2>docker compose で改善したポイント</h2>
+                    <p>
+                        学習用として過度に複雑にせず、でも「実際に困るポイント」は避ける構成にしています。
+                    </p>
+                </div>
+
+                <div class="file-grid">
+                    <article class="file-card">
+                        <h3>healthcheck を追加</h3>
+                        <p><code>db</code> は <code>pg_isready</code>、<code>app</code> は <code>/actuator/health</code> で確認します。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>depends_on を強化</h3>
+                        <p><code>service_started</code> ではなく <code>service_healthy</code> を使い、DB未準備で app が失敗しにくくしました。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>fail-fast secrets</h3>
+                        <p><code>POSTGRES_PASSWORD</code>、<code>APP_SECURITY_PASSWORD</code>、<code>JWT_SECRET</code> は未設定だと compose 自体が止まります。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>ポート可変化</h3>
+                        <p><code>API_PORT</code>、<code>POSTGRES_PORT</code> を変えれば、他プロジェクトと競合しても逃がせます。</p>
+                    </article>
+                </div>
+
+                <div class="warning-note">
+                    <strong>ポイント</strong>
+                    <p>
+                        PostgreSQL の初期化変数を変えたのに volume が残っていると、前回の認証情報でDBが動き続けます。
+                        その場合は <code>docker compose down -v</code> が必要です。
+                    </p>
+                </div>
+            </section>
+
+            <section id="run-modes" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Run Modes</p>
+                    <h2>ローカル実行と Docker 実行をどう両立したか</h2>
+                    <p>
+                        「Docker では動くけどローカルでは壊れる」またはその逆、を避けるための整理も今回のテーマでした。
+                    </p>
+                </div>
+
+                <div class="token-grid">
+                    <article class="token-card">
+                        <h3>Docker 実行</h3>
+                        <ul>
+                            <li><code>DB_HOST=db</code> を compose 側で固定</li>
+                            <li>コンテナ内ネットワークで <code>db:5432</code> に接続</li>
+                            <li><code>docker compose up --build</code> が入口</li>
+                        </ul>
+                    </article>
+                    <article class="token-card">
+                        <h3>ローカル実行</h3>
+                        <ul>
+                            <li><code>.env</code> の初期値は <code>DB_HOST=localhost</code></li>
+                            <li>Spring Boot が <code>.env</code> を自動読込</li>
+                            <li><code>./gradlew bootRun</code> が入口</li>
+                        </ul>
+                    </article>
+                </div>
+
+                <div class="checkpoint-row">
+                    <div class="checkpoint">
+                        <strong>Docker向け上書き</strong>
+                        <p>Compose がアプリコンテナにだけ <code>DB_HOST=db</code> を渡します。</p>
+                    </div>
+                    <div class="checkpoint-arrow">↔</div>
+                    <div class="checkpoint">
+                        <strong>ローカル向け既定値</strong>
+                        <p><code>.env</code> と properties のデフォルトで <code>localhost</code> 接続になります。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="checks" class="panel">
+                <div class="section-heading">
+                    <p class="section-label">Checks</p>
+                    <h2>今回の確認で使ったコマンド</h2>
+                    <p>W05の整備後に、実際に通して確認したコマンドです。</p>
+                </div>
+
+                <div class="command-grid">
+                    <article class="command-card">
+                        <h3>Compose設定確認</h3>
+<pre><code>docker compose config</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>一発起動</h3>
+<pre><code>docker compose up --build</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>health確認</h3>
+<pre><code>curl http://localhost:8080/actuator/health</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>テスト実行</h3>
+<pre><code>./gradlew test</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>ポート変更例</h3>
+<pre><code>API_PORT=18080 POSTGRES_PORT=15432 docker compose up --build</code></pre>
+                    </article>
+                    <article class="command-card">
+                        <h3>DB初期化</h3>
+<pre><code>docker compose down -v</code></pre>
+                    </article>
+                </div>
+            </section>
+
+            <section id="files" class="panel accent-panel">
+                <div class="section-heading">
+                    <p class="section-label">Files</p>
+                    <h2>W05で主に見ればよいファイル</h2>
+                    <p>今回の変更を読み返すときは、このファイルを見ると追いやすいです。</p>
+                </div>
+
+                <div class="file-grid">
+                    <article class="file-card">
+                        <h3>Dockerfile</h3>
+                        <p>multi-stage build と runtime イメージの構成を確認できます。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>docker-compose.yml</h3>
+                        <p>app / db / healthcheck / env / ports の関係がまとまっています。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>application.properties</h3>
+                        <p>DB接続解決、`.env` 読み込み、Actuator / SpringDoc の設定があります。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>.env.example</h3>
+                        <p>ユーザーが最初に編集すべき設定値を一覧で見られます。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>README.md</h3>
+                        <p>セットアップ、起動方法、fail-fast、初期化方法が更新されています。</p>
+                    </article>
+                    <article class="file-card">
+                        <h3>ApplicationPropertiesResolutionTest</h3>
+                        <p>今回追加した設定解決の回帰テストを確認できます。</p>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

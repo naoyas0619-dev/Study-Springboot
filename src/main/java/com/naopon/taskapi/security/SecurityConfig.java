@@ -53,7 +53,9 @@ public class SecurityConfig {
                                 "/w03-exception-test-guide",
                                 "/w03-exception-test-guide.html",
                                 "/w04-jwt-auth-guide",
-                                "/w04-jwt-auth-guide.html"
+                                "/w04-jwt-auth-guide.html",
+                                "/w05-docker-compose-guide",
+                                "/w05-docker-compose-guide.html"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/*.css", "/*.js", "/favicon.ico").permitAll()
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
