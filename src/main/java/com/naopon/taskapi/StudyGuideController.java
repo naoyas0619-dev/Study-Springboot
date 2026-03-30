@@ -26,4 +26,9 @@ public class StudyGuideController {
     public String w04JwtAuthGuide() {
         return "redirect:/w04-jwt-auth-guide.html";
     }
+
+    @GetMapping("/w05-docker-compose-guide")
+    public String w05DockerComposeGuide() {
+        return "redirect:/w05-docker-compose-guide.html";
+    }
 }
