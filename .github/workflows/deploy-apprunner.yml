@@ -1,0 +1,51 @@
+name: Deploy to AWS App Runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  APP_RUNNER_SERVICE_ARN: ${{ vars.APP_RUNNER_SERVICE_ARN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate workflow configuration
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        run: |
+          test -n "$AWS_REGION" || (echo "Missing GitHub variable: AWS_REGION" && exit 1)
+          test -n "$ECR_REPOSITORY" || (echo "Missing GitHub variable: ECR_REPOSITORY" && exit 1)
+          test -n "$AWS_ROLE_TO_ASSUME" || (echo "Missing GitHub secret: AWS_ROLE_TO_ASSUME" && exit 1)
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          IMAGE_URI: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        run: |
+          docker build -t "$IMAGE_URI:sha-${GITHUB_SHA}" -t "$IMAGE_URI:latest" .
+          docker push "$IMAGE_URI:sha-${GITHUB_SHA}"
+          docker push "$IMAGE_URI:latest"
+
+      - name: Start App Runner deployment
+        if: ${{ env.APP_RUNNER_SERVICE_ARN != '' }}
+        run: aws apprunner start-deployment --service-arn "$APP_RUNNER_SERVICE_ARN"

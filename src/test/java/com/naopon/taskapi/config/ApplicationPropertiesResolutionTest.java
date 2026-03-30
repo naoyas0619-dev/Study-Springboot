@@ -48,6 +48,22 @@ class ApplicationPropertiesResolutionTest {
         assertEquals("optional:file:.env[.properties]", resolver.getProperty("spring.config.import"));
     }
 
+    @Test
+    void resolvesServerPortFromPortEnvironmentVariable() throws IOException {
+        PropertySourcesPropertyResolver resolver = propertyResolver(Map.of(
+                "PORT", "18080"
+        ));
+
+        assertEquals("18080", resolver.getProperty("server.port"));
+    }
+
+    @Test
+    void enablesForwardHeadersForProxyAwareDeployments() throws IOException {
+        PropertySourcesPropertyResolver resolver = propertyResolver(Map.of());
+
+        assertEquals("framework", resolver.getProperty("server.forward-headers-strategy"));
+    }
+
     private PropertySourcesPropertyResolver propertyResolver(Map<String, String> environmentValues) throws IOException {
         MutablePropertySources propertySources = new MutablePropertySources();
         propertySources.addFirst(new MapPropertySource("environment", new HashMap<>(environmentValues)));

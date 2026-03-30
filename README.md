@@ -133,6 +133,15 @@ PostgreSQLを先に起動してから `./gradlew bootRun` を実行します。S
 ./gradlew test
 ```
 
+## AWS公開
+
+このリポジトリでは、公開用のAWSデプロイ方式として `AWS App Runner + Amazon RDS for PostgreSQL` を採用します。
+
+- 理由: 既存の `Dockerfile` を流用しやすく、公開URLを比較的少ない設定で持てて、ECS より学習コストを抑えやすいため
+- 手順書: [docs/aws-apprunner-deploy.md](docs/aws-apprunner-deploy.md)
+- App Runner 用の環境変数テンプレート: `deploy/aws/apprunner.env.example`
+- GitHub Actions workflow: `.github/workflows/deploy-apprunner.yml`
+
 ## 認証の考え方
 
 このAPIは stateless な access token 認証です。
